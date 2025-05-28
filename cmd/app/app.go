@@ -31,10 +31,13 @@ type Handler struct {
 }
 
 func CreateStream(js natsjs.JetStreamContext) error {
+	js.DeleteStream(domain.STREAM_NAME_CONVERSATION)
+	js.DeleteStream(domain.STREAM_NAME_WS_MESSAGE)
 	_, err := js.AddStream(&natsjs.StreamConfig{
 		Name:     domain.STREAM_NAME_CONVERSATION,
 		Subjects: []string{domain.SUBJECT_WILDCARD_CONVERSATION},
 	})
+
 	if err != nil {
 		return err
 	}
@@ -54,7 +57,7 @@ func CreateStream(js natsjs.JetStreamContext) error {
 func RunApp() {
 	ctx, cancel := context.WithCancel(context.Background())
 	// Initialize the database connection
-	db, err := postgresql.Connect(configuration.ConfigInstance.Postgres)
+	db, err := postgresql.Connect(ctx, configuration.ConfigInstance.Postgres)
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +93,7 @@ func RunApp() {
 
 	// Initialize use cases
 	userUseCase := usecase.NewUserUseCase(accountRepository, userRepository, sessionRepository, sessionCacheRepository, userCacheRepository)
-	conversationUseCase := usecase.NewConversationUseCase(conversationRepository, messageRepository, messagePublisher, userOnlineRepository)
+	conversationUseCase := usecase.NewConversationUseCase(conversationRepository, messageRepository, messagePublisher, userOnlineRepository, userRepository)
 	userOnlineUseCase := usecase.NewUserOnlineUsecase(userOnlineRepository)
 
 	// Initialize the handler

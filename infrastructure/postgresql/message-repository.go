@@ -2,21 +2,21 @@ package postgresql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type messageRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 // CreateMessage implements domain.MessageRepository.
 func (m *messageRepository) CreateMessage(ctx context.Context, message *domain.Message) (*domain.Message, error) {
 	query := `INSERT INTO message (id, conversation_id, user_id, type, body, created_at, updated_at, deleted_at, reply_to) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	_, err := m.db.ExecContext(ctx, query, message.ID, message.ConversationID, message.UserID, message.Type, message.Body, message.CreatedAt, message.UpdatedAt, message.DeletedAt, message.ReplyTo)
+	_, err := m.db.Exec(ctx, query, message.ID, message.ConversationID, message.UserID, message.Type, message.Body, message.CreatedAt, message.UpdatedAt, message.DeletedAt, message.ReplyTo)
 	if err != nil {
 		return nil, err
 	}
@@ -45,17 +45,12 @@ func (m *messageRepository) GetListMessageByConversationID(ctx context.Context, 
 		condition = fmt.Sprintf("%s AND id < $2", condition)
 	}
 	query := fmt.Sprintf(`SELECT %s FROM message AS m JOIN user_info AS u ON m.user_id = u.id WHERE %s ORDER BY m.id DESC LIMIT %d`, strings.Join(fields, ","), condition, limit)
-	stmt, err := m.db.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
 	var params []any
 	params = append(params, conversationID)
 	if lastID != "" {
 		params = append(params, lastID)
 	}
-	rows, err := stmt.QueryContext(ctx, params...)
+	rows, err := m.db.Query(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +103,7 @@ func (m *messageRepository) GetMessageByID(ctx context.Context, id string) (*dom
 		"u.type",
 	}
 	query := fmt.Sprintf(`SELECT %s FROM message AS m JOIN user_info AS u ON m.user_id = u.id WHERE m.id = $1`, strings.Join(fields, ","))
-	stmt, err := m.db.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, id)
+	row := m.db.QueryRow(ctx, query, id)
 	var message domain.Message
 	var user domain.UserInfo
 	values := []any{
@@ -131,7 +121,7 @@ func (m *messageRepository) GetMessageByID(ctx context.Context, id string) (*dom
 		&user.Avatar,
 		&user.Type,
 	}
-	err = row.Scan(values...)
+	err := row.Scan(values...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +131,6 @@ func (m *messageRepository) GetMessageByID(ctx context.Context, id string) (*dom
 
 var _ domain.MessageRepository = &messageRepository{}
 
-func NewMessageRepository(db *sql.DB) domain.MessageRepository {
+func NewMessageRepository(db *pgxpool.Pool) domain.MessageRepository {
 	return &messageRepository{db: db}
 }

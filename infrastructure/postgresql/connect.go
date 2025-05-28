@@ -1,14 +1,14 @@
 package postgresql
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 
 	"github.com/chat-socio/backend/configuration"
-	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect(postgresConfig *configuration.PostgresConfig) (*sql.DB, error) {
+func Connect(ctx context.Context, postgresConfig *configuration.PostgresConfig) (*pgxpool.Pool, error) {
 	// Build the connection string
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		postgresConfig.Host,
@@ -18,9 +18,13 @@ func Connect(postgresConfig *configuration.PostgresConfig) (*sql.DB, error) {
 		postgresConfig.Database,
 		postgresConfig.SSLMode,
 	)
-
 	// Open a connection to the database
-	db, err := sql.Open("postgres", connStr)
+	db, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Ping(ctx)
 	if err != nil {
 		return nil, err
 	}

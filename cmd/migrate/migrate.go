@@ -1,12 +1,12 @@
 package migrate
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/chat-socio/backend/configuration"
-	"github.com/chat-socio/backend/infrastructure/postgresql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -14,7 +14,15 @@ import (
 )
 
 func Migrate() {
-	db, err := postgresql.Connect(configuration.ConfigInstance.Postgres)
+	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		configuration.ConfigInstance.Postgres.Host,
+		configuration.ConfigInstance.Postgres.Port,
+		configuration.ConfigInstance.Postgres.Username,
+		configuration.ConfigInstance.Postgres.Password,
+		configuration.ConfigInstance.Postgres.Database,
+		configuration.ConfigInstance.Postgres.SSLMode,
+	)
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Println("Error connecting to database:", err)
 		os.Exit(1)

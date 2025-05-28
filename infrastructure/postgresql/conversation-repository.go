@@ -2,31 +2,32 @@ package postgresql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type conversationRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 // CreateConversation implements domain.ConversationRepository.
 func (c *conversationRepository) CreateConversation(ctx context.Context, conversation *domain.Conversation, conversationMembers []*domain.ConversationMember) (*domain.Conversation, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
+	tx, err := c.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	query := `
 		INSERT INTO conversation (id, created_at, type, title, avatar, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err = tx.ExecContext(ctx, query, conversation.ID, conversation.CreatedAt, conversation.Type, conversation.Title, conversation.Avatar, conversation.UpdatedAt)
+	_, err = tx.Exec(ctx, query, conversation.ID, conversation.CreatedAt, conversation.Type, conversation.Title, conversation.Avatar, conversation.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -37,13 +38,13 @@ func (c *conversationRepository) CreateConversation(ctx context.Context, convers
 	`
 
 	for _, conversationMember := range conversationMembers {
-		_, err = tx.ExecContext(ctx, query, conversationMember.ID, conversationMember.ConversationID, conversationMember.UserID, conversationMember.CreatedAt, conversationMember.UpdatedAt)
+		_, err = tx.Exec(ctx, query, conversationMember.ID, conversationMember.ConversationID, conversationMember.UserID, conversationMember.CreatedAt, conversationMember.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = tx.Commit()
+	err = tx.Commit(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,10 +60,7 @@ func (c *conversationRepository) GetConversationByID(ctx context.Context, id str
 	fields, values := conversation.MapFields()
 	// query get conversation and conversation members
 	query := fmt.Sprintf(`SELECT %s FROM conversation WHERE id = $1`, strings.Join(fields, ", "))
-	row := c.db.QueryRowContext(ctx, query, id)
-	if row.Err() != nil {
-		return nil, nil, row.Err()
-	}
+	row := c.db.QueryRow(ctx, query, id)
 
 	if err := row.Scan(values...); err != nil {
 		return nil, nil, err
@@ -71,7 +69,7 @@ func (c *conversationRepository) GetConversationByID(ctx context.Context, id str
 	query = `SELECT cm.conversation_id, cm.user_id, ui.full_name, ui.avatar, ui.type FROM conversation_member cm
 		INNER JOIN user_info ui ON cm.user_id = ui.id
 		WHERE cm.conversation_id = $1`
-	rows, err := c.db.QueryContext(ctx, query, id)
+	rows, err := c.db.Query(ctx, query, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -97,24 +95,24 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 	if lastMessageID != "" {
 		conditionLastMessageID = `AND last_message_id < $2`
 		params = append(params, lastMessageID)
-	} 
+	}
 	// Add NULL handling for last_message_id
 	fieldsWithCoalesce := []string{
 		"c.id",
-		"c.created_at", 
+		"c.created_at",
 		"c.type",
-		"c.title", 
+		"c.title",
 		"c.avatar",
 		"c.updated_at",
 		"c.deleted_at",
 		"COALESCE(c.last_message_id::text, '')", // Handle NULL last_message_id
-		"COALESCE(m.id::text, '')", // Handle NULL message id
+		"COALESCE(m.id::text, '')",              // Handle NULL message id
 		"COALESCE(m.conversation_id::text, '')",
 		"COALESCE(m.user_id::text, '')",
 		"COALESCE(m.type::text, '')",
 		"COALESCE(m.body::text, '')",
 		"COALESCE(m.created_at, NULL)",
-		"COALESCE(m.updated_at, NULL)", 
+		"COALESCE(m.updated_at, NULL)",
 		"COALESCE(m.reply_to::text, '')",
 		"COALESCE(ui.full_name::text, '')",
 		"COALESCE(ui.avatar::text, '')",
@@ -127,8 +125,7 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 		WHERE c.id IN (SELECT DISTINCT conversation_id FROM conversation_member WHERE user_id = $1) %s
 		ORDER BY last_message_id DESC LIMIT %d`, strings.Join(fieldsWithCoalesce, ", "), conditionLastMessageID, limit)
 
-
-	rows, err := c.db.QueryContext(ctx, query, params...)
+	rows, err := c.db.Query(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -179,41 +176,43 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 }
 
 // UpdateLastMessageID implements domain.ConversationRepository.
-func (c *conversationRepository) UpdateLastMessageID(ctx context.Context, conversationID string, lastMessageID string) (*domain.Conversation, error) {
-	tx, err := c.db.BeginTx(ctx, nil)
+func (c *conversationRepository) UpdateLastMessageID(ctx context.Context, conversationID string, lastMessageID string) error {
+	var isCommited bool
+	tx, err := c.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer tx.Rollback()
-	var params []any
-	params = append(params, conversationID)
-	var lastMessageIDQuery string
-	var updatedAtQuery *time.Time
-	query := `SELECT last_message_id, updated_at FROM conversation WHERE id = $1 FOR UPDATE`
-	err = tx.QueryRowContext(ctx, query, params...).Scan(&lastMessageIDQuery, &updatedAtQuery)
+	defer func() {
+		if !isCommited {
+			tx.Rollback(ctx)
+		}
+	}()
+	var temp int
+	query := `SELECT 1 FROM conversation WHERE id = $1 FOR UPDATE`
+	err = tx.QueryRow(ctx, query, conversationID).Scan(&temp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	query = `
-		UPDATE conversation
-		SET last_message_id = $1, updated_at = NOW()
-		WHERE id = $2 AND last_message_id = $3 AND updated_at = $4
-		RETURNING id, created_at, type, title, avatar, updated_at, deleted_at, last_message_id
+		UPDATE conversation SET last_message_id = $1, updated_at = $2 WHERE id = $3
 	`
 
-	var conversation domain.Conversation
-	_, values := conversation.MapFields()
-
-	err = tx.QueryRowContext(ctx, query, lastMessageID, conversationID, lastMessageIDQuery, updatedAtQuery).Scan(values...)
+	_, err = tx.Exec(ctx, query, lastMessageID, time.Now(), conversationID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &conversation, nil
+	isCommited = true
+	err = tx.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 var _ domain.ConversationRepository = &conversationRepository{}
 
-func NewConversationRepository(db *sql.DB) domain.ConversationRepository {
+func NewConversationRepository(db *pgxpool.Pool) domain.ConversationRepository {
 	return &conversationRepository{db: db}
 }

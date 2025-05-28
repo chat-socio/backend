@@ -47,7 +47,7 @@ type ConversationRepository interface {
 	CreateConversation(ctx context.Context, conversation *Conversation, conversationMembers []*ConversationMember) (*Conversation, error)
 	GetListConversationByUserID(ctx context.Context, userID string, lastMessageID string, limit int) ([]*Conversation, error)
 	GetConversationByID(ctx context.Context, id string) (*Conversation, []*ConversationMemberWithUser, error)
-	UpdateLastMessageID(ctx context.Context, conversationID string, lastMessageID string) (*Conversation, error)
+	UpdateLastMessageID(ctx context.Context, conversationID string, lastMessageID string) error
 }
 
 type MessageRepository interface {

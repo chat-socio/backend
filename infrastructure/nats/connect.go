@@ -65,17 +65,14 @@ func ConnectJetStream(address string, opts ...nats.Option) nats.JetStreamContext
 
 func WrapHandler[T any](handler func(ctx context.Context, data T) error) func(ctx context.Context, data interface{}) error {
 	return func(ctx context.Context, data interface{}) error {
-		typedData, ok := data.(T)
-		if !ok {
-			b, err := json.Marshal(data)
-			if err != nil {
-				return err
-			}
-			var typedData T
-			err = json.Unmarshal(b, &typedData)
-			if err != nil {
-				return err
-			}
+		var typedData T
+		b, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(b, &typedData)
+		if err != nil {
+			return err
 		}
 		return handler(ctx, typedData)
 	}

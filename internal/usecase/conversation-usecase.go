@@ -20,8 +20,8 @@ type ConversationUseCase interface {
 	GetListMessageByConversationID(ctx context.Context, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error)
 	CreateConversation(ctx context.Context, conversation *presenter.CreateConversationRequest) (*presenter.ConversationResponse, error)
 	SendMessage(ctx context.Context, message *presenter.SendMessageRequest) (*presenter.MessageResponse, error)
-	HandleNewMessage(ctx context.Context, message *domain.Message) error
-	HandleUpdateLastMessageID(ctx context.Context, data *domain.UpdateLastMessageID) error
+	HandleNewMessage(ctx context.Context, message *domain.WebSocketMessage) error
+	HandleUpdateLastMessageID(ctx context.Context, data domain.UpdateLastMessageID) error
 }
 
 type conversationUseCase struct {
@@ -29,12 +29,14 @@ type conversationUseCase struct {
 	messageRepository      domain.MessageRepository
 	messagePublisher       pubsub.Publisher
 	userOnlineRepository   domain.UserOnlineRepository
+	userRepository         domain.UserRepository
 }
 
 // HandleUpdateLastMessageID implements ConversationUseCase.
-func (c *conversationUseCase) HandleUpdateLastMessageID(ctx context.Context, data *domain.UpdateLastMessageID) error {
-	_, err := c.conversationRepository.UpdateLastMessageID(ctx, data.ConversationID, data.MessageID)
+func (c *conversationUseCase) HandleUpdateLastMessageID(ctx context.Context, data domain.UpdateLastMessageID) error {
+	err := c.conversationRepository.UpdateLastMessageID(ctx, data.ConversationID, data.MessageID)
 	if err != nil {
+		fmt.Println("error update last message id", err)
 		return err
 	}
 	conversation, _, err := c.conversationRepository.GetConversationByID(ctx, data.ConversationID)
@@ -73,48 +75,25 @@ func (c *conversationUseCase) HandleUpdateLastMessageID(ctx context.Context, dat
 	return c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, wsMessage)
 }
 
-// HandleNewMessage implements ConversationUseCase.
-func (c *conversationUseCase) HandleNewMessage(ctx context.Context, message *domain.Message) error {
+func (c *conversationUseCase) getUserOnlineByConversationID(ctx context.Context, conversationID string) ([]*domain.UserOnline, error) {
+	return c.userOnlineRepository.GetUserOnlineByConversationID(ctx, conversationID)
+}
+
+func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, message *domain.WebSocketMessage) error {
 	// get user online by conversation id
-	userOnlines, err := c.userOnlineRepository.GetUserOnlineByConversationID(ctx, message.ConversationID)
+	userOnlines, err := c.getUserOnlineByConversationID(ctx, message.Payload["conversation_id"].(string))
 	if err != nil {
 		return err
-	}
-	// get message by id
-	newMessage, err := c.messageRepository.GetMessageByID(ctx, message.ID)
-	if err != nil {
-		return err
-	}
-	// create payload for websocket message
-	user := newMessage.User
-	userMap, err := pointer.ToMap(user)
-	if err != nil {
-		log.Println("failed to marshal user to map", err)
-		return err
-	}
-	messageMap, err := pointer.ToMap(newMessage)
-	if err != nil {
-		log.Println("failed to marshal message to map", err)
-		return err
-	}
-	if userMap != nil {
-		messageMap["user"] = userMap
 	}
 	// send message to websocket
 	for _, userOnline := range userOnlines {
-		if userOnline.ConnectionID == message.IgnoreSend {
-			continue
-		}
+		// TODO: exclude user who send message
 		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
 		if !ok {
 			continue
 		}
 
-		wsMessage := &domain.WebSocketMessage{
-			Type:    domain.WsMessage,
-			Payload: messageMap,
-		}
-		b, err := json.Marshal(wsMessage)
+		b, err := json.Marshal(message)
 		if err != nil {
 			log.Println("failed to marshal message to json", err)
 			continue
@@ -124,12 +103,47 @@ func (c *conversationUseCase) HandleNewMessage(ctx context.Context, message *dom
 	return nil
 }
 
-func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository) ConversationUseCase {
+func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Context, message *domain.WebSocketMessage) error {
+	// get user online by conversation id
+	userOnlines, err := c.getUserOnlineByConversationID(ctx, message.Payload["id"].(string))
+	if err != nil {
+		return err
+	}
+	// send message to websocket
+	for _, userOnline := range userOnlines {
+		// TODO: exclude user who send message
+		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
+		if !ok {
+			continue
+		}
+		b, err := json.Marshal(message)
+		if err != nil {
+			log.Println("failed to marshal message to json", err)
+			continue
+		}
+		wsConn.SendMessage(b)
+	}
+	return nil
+}
+
+// HandleNewMessage implements ConversationUseCase.
+func (c *conversationUseCase) HandleNewMessage(ctx context.Context, message *domain.WebSocketMessage) error {
+	switch message.Type {
+	case domain.WsMessage:
+		return c.handleSendEventNewMessage(ctx, message)
+	case domain.WsUpdateLastMessage:
+		return c.handleSendEventUpdateLastMessageID(ctx, message)
+	}
+	return nil
+}
+
+func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository, userRepository domain.UserRepository) ConversationUseCase {
 	return &conversationUseCase{
 		conversationRepository: conversationRepository,
 		messageRepository:      messageRepository,
 		messagePublisher:       messagePublisher,
 		userOnlineRepository:   userOnlineRepository,
+		userRepository:         userRepository,
 	}
 }
 
@@ -293,8 +307,26 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 		return nil, err
 	}
 
+	user, err := c.userRepository.GetUserByID(ctx, message.UserID)
+	if err != nil {
+		return nil, err
+	}
+	userMap, err := pointer.ToMap(user)
+	if err != nil {
+		return nil, err
+	}
+
+	messageMap, err := pointer.ToMap(messageDomain)
+	if err != nil {
+		return nil, err
+	}
+	messageMap["user"] = userMap
+	wsMessage := &domain.WebSocketMessage{
+		Type:    domain.WsMessage,
+		Payload: messageMap,
+	}
 	// send message to websocket
-	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, messageDomain)
+	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, wsMessage)
 	if err != nil {
 		// TODO: log error for tracing
 		return nil, fmt.Errorf("failed to publish message to websocket: %w", err)

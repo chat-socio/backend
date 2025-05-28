@@ -6,22 +6,17 @@ import (
 	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type sessionRepository struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
 // CreateSession implements domain.SessionRepository.
 func (s *sessionRepository) CreateSession(ctx context.Context, session *domain.Session) error {
 	query := `INSERT INTO session (session_token, account_id, created_at, updated_at, expired_at, is_active, user_agent, ip_address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	stmt, err := s.db.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, session.SessionToken, session.AccountID, session.CreatedAt, session.UpdatedAt, session.ExpiredAt, session.IsActive, session.UserAgent, session.IPAddress)
+	_, err := s.db.Exec(ctx, query, session.SessionToken, session.AccountID, session.CreatedAt, session.UpdatedAt, session.ExpiredAt, session.IsActive, session.UserAgent, session.IPAddress)
 	if err != nil {
 		return err
 	}
@@ -32,13 +27,7 @@ func (s *sessionRepository) CreateSession(ctx context.Context, session *domain.S
 // DeactivateSession implements domain.SessionRepository.
 func (s *sessionRepository) DeactivateSession(ctx context.Context, token string) error {
 	query := `UPDATE session SET is_active = false WHERE session_token = $1`
-	stmt, err := s.db.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, token)
+	_, err := s.db.Exec(ctx, query, token)
 	if err != nil {
 		return err
 	}
@@ -49,13 +38,7 @@ func (s *sessionRepository) DeactivateSession(ctx context.Context, token string)
 // DeactiveAllSessionByAccountID implements domain.SessionRepository.
 func (s *sessionRepository) DeactiveAllSessionByAccountID(ctx context.Context, accountID string) error {
 	query := `UPDATE session SET is_active = false WHERE account_id = $1`
-	stmt, err := s.db.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, accountID)
+	_, err := s.db.Exec(ctx, query, accountID)
 	if err != nil {
 		return err
 	}
@@ -67,16 +50,11 @@ func (s *sessionRepository) DeactiveAllSessionByAccountID(ctx context.Context, a
 func (s *sessionRepository) GetListSessionByAccountID(ctx context.Context, accountID string) ([]*domain.Session, error) {
 	var sessions []*domain.Session
 	query := `SELECT session_token, account_id, created_at, updated_at, expired_at, is_active, user_agent, ip_address FROM session WHERE account_id = $1 AND is_active = true`
-	stmt, err := s.db.PrepareContext(ctx, query)
+	rows, err := s.db.Query(ctx, query, accountID)
 	if err != nil {
 		return nil, err
 	}
 
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx, accountID)
-	if err != nil {
-		return nil, err
-	}
 	defer rows.Close()
 
 	for rows.Next() {
@@ -94,15 +72,9 @@ func (s *sessionRepository) GetListSessionByAccountID(ctx context.Context, accou
 // GetSessionByToken implements domain.SessionRepository.
 func (s *sessionRepository) GetSessionByToken(ctx context.Context, token string) (*domain.Session, error) {
 	query := `SELECT session_token, account_id, created_at, updated_at, expired_at, is_active, user_agent, ip_address FROM session WHERE session_token = $1`
-	stmt, err := s.db.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, token)
+	row := s.db.QueryRow(ctx, query, token)
 	var session domain.Session
-	err = row.Scan(&session.SessionToken, &session.AccountID, &session.CreatedAt, &session.UpdatedAt, &session.ExpiredAt, &session.IsActive, &session.UserAgent, &session.IPAddress)
+	err := row.Scan(&session.SessionToken, &session.AccountID, &session.CreatedAt, &session.UpdatedAt, &session.ExpiredAt, &session.IsActive, &session.UserAgent, &session.IPAddress)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, err
@@ -116,13 +88,7 @@ func (s *sessionRepository) GetSessionByToken(ctx context.Context, token string)
 // UpdateExpiredAt implements domain.SessionRepository.
 func (s *sessionRepository) UpdateExpiredAt(ctx context.Context, token string, newExpiredAt *time.Time) error {
 	query := `UPDATE session SET expired_at = $1 WHERE session_token = $2`
-	stmt, err := s.db.PrepareContext(ctx, query)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, newExpiredAt, token)
+	_, err := s.db.Exec(ctx, query, newExpiredAt, token)
 	if err != nil {
 		return err
 	}
@@ -130,7 +96,7 @@ func (s *sessionRepository) UpdateExpiredAt(ctx context.Context, token string, n
 	return nil
 }
 
-func NewSessionRepository(db *sql.DB) *sessionRepository {
+func NewSessionRepository(db *pgxpool.Pool) *sessionRepository {
 	return &sessionRepository{
 		db: db,
 	}
