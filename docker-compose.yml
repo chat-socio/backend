@@ -68,7 +68,22 @@ services:
         condition: service_started
     volumes:
       - ./config-deploy.yaml:/app/config.yaml
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "14250:14250"
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+      - "14268:14268"
+
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    volumes:
+      - jaeger-data:/data
 volumes:
   nats-data:
   postgres-data:
+  jaeger-data:
   redis-data:

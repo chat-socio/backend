@@ -25,3 +25,24 @@ jwt:
 
 nats:
   address: "nats://localhost:4222"
+
+observability:
+  tracing_enabled: true
+  jaeger_endpoint: localhost:4318
+  jaeger_service: "chat-socio"
+
+# logging:
+#   level: "info"
+#   format: "json"
+#   output: "stdout"
+
+# metrics:
+#   enabled: true
+#   port: 9090
+#   path: "/metrics"
+
+# tracing:
+#   enabled: true
+#   endpoint: "http://localhost:14268"
+#   service_name: "chat-service"
+#   sample_rate: 1.0

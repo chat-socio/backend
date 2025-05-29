@@ -10,15 +10,20 @@ import (
 	"github.com/chat-socio/backend/internal/presenter"
 	"github.com/chat-socio/backend/internal/usecase"
 	"github.com/chat-socio/backend/internal/utils"
+	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol"
 )
 
 type UserHandler struct {
 	UserUseCase usecase.UserUseCase
+	Obs         *observability.Observability
 }
 
 func (uh *UserHandler) Register(ctx context.Context, c *app.RequestContext) {
+	ctx, span := uh.Obs.StartSpan(ctx, "UserHandler.Register")
+	defer span()
+
 	var registerRequest presenter.RegisterRequest
 	if err := c.Bind(&registerRequest); err != nil {
 		c.JSON(http.StatusBadRequest, presenter.BaseResponse[any]{
@@ -48,6 +53,9 @@ func (uh *UserHandler) Register(ctx context.Context, c *app.RequestContext) {
 }
 
 func (uh *UserHandler) Login(ctx context.Context, c *app.RequestContext) {
+	ctx, span := uh.Obs.StartSpan(ctx, "UserHandler.Login")
+	defer span()
+
 	// Extract user agent and IP address from context
 	userAgent := c.Request.Header.Get("User-Agent")
 	ipAddress := c.ClientIP()
@@ -95,6 +103,9 @@ func (uh *UserHandler) Login(ctx context.Context, c *app.RequestContext) {
 }
 
 func (uh *UserHandler) GetMyInfo(ctx context.Context, c *app.RequestContext) {
+	ctx, span := uh.Obs.StartSpan(ctx, "UserHandler.GetMyInfo")
+	defer span()
+
 	// Extract account ID from the request context
 	accountID := ctx.Value(utils.AccountIDKey).(string)
 	if accountID == "" {
@@ -120,6 +131,9 @@ func (uh *UserHandler) GetMyInfo(ctx context.Context, c *app.RequestContext) {
 }
 
 func (uh *UserHandler) GetListUser(ctx context.Context, c *app.RequestContext) {
+	ctx, span := uh.Obs.StartSpan(ctx, "UserHandler.GetListUser")
+	defer span()
+
 	// Extract params from request
 	accountID := ctx.Value(utils.AccountIDKey).(string)
 	userID, err := uh.UserUseCase.GetUserIDByAccountID(ctx, accountID)

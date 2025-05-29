@@ -3,7 +3,6 @@ package nats
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/nats-io/nats.go"
 )
@@ -17,7 +16,6 @@ type NatsSubscriber struct {
 func (ns *NatsSubscriber) Subscribe(ctx context.Context, subject string, handler func(ctx context.Context, data interface{}) error) error {
 	var err error
 	ns.subs, err = ns.js.Subscribe(subject, func(msg *nats.Msg) {
-		fmt.Println("subscribe", string(msg.Data))
 		var data interface{}
 		err := json.Unmarshal(msg.Data, &data)
 		if err != nil {

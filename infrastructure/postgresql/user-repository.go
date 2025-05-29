@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type userRepository struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	obs *observability.Observability
 }
 
 // GetListUser implements domain.UserRepository.
@@ -61,7 +64,7 @@ func (u *userRepository) GetListUser(ctx context.Context, keyword string, limit 
 }
 
 func (u *userRepository) GetListUserWithConversation(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*domain.UserInfo, error) {
-	
+
 	var users []*domain.UserInfo
 	var user domain.UserInfo
 	fields, _ := user.MapFields()
@@ -122,12 +125,27 @@ func (u *userRepository) GetListUserWithConversation(ctx context.Context, userID
 
 // CreateUser implements domain.UserRepository.
 func (u *userRepository) CreateUser(ctx context.Context, user *domain.UserInfo) error {
+	ctx, span := u.obs.StartSpan(ctx, "UserRepository.Create")
+	defer span()
+
+	start := time.Now()
+	logger := u.obs.Logger.WithContext(ctx)
+
+	logger.Info("Creating user", map[string]interface{}{
+		"email": user.Email,
+	})
+
 	query := `INSERT INTO user_info (id ,account_id, type, email, full_name, avatar, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	_, err := u.db.Exec(ctx, query, user.AccountID, user.Type, user.Email, user.FullName, user.Avatar, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
+		logger.WithError(err).Error("Failed to create user")
 		return err
 	}
+
+	logger.Info("User created successfully")
+	u.obs.Metrics.UsersRegistered.Inc()
+	u.obs.Metrics.RecordDBQuery("INSERT", "users", "success", time.Since(start))
 	return nil
 }
 
@@ -146,14 +164,28 @@ func (u *userRepository) GetUserByAccountID(ctx context.Context, accountID strin
 
 // GetUserByEmail implements domain.UserRepository.
 func (u *userRepository) GetUserByEmail(ctx context.Context, email string) (*domain.UserInfo, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserRepository.GetByEmail")
+	defer span()
+
+	start := time.Now()
+	logger := u.obs.Logger.WithContext(ctx)
+
+	logger.Info("Getting user by email", map[string]interface{}{
+		"email": email,
+	})
+
 	var user domain.UserInfo
 	fields, values := user.MapFields()
 	query := fmt.Sprintf(`SELECT %s FROM %s WHERE email = $1`, strings.Join(fields, ","), user.TableName())
 	row := u.db.QueryRow(ctx, query, email)
 	err := row.Scan(values...)
 	if err != nil {
+		logger.WithError(err).Error("Failed to get user by email")
 		return nil, err
 	}
+
+	logger.Info("User retrieved successfully")
+	u.obs.Metrics.RecordDBQuery("SELECT", "users", "success", time.Since(start))
 	return &user, nil
 }
 
@@ -180,9 +212,10 @@ func (u *userRepository) UpdateUser(ctx context.Context, user *domain.UserInfo) 
 	return nil
 }
 
-func NewUserRepository(db *pgxpool.Pool) domain.UserRepository {
+func NewUserRepository(db *pgxpool.Pool, obs *observability.Observability) domain.UserRepository {
 	return &userRepository{
-		db: db,
+		db:  db,
+		obs: obs,
 	}
 }
 

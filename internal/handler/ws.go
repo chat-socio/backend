@@ -11,6 +11,7 @@ import (
 	"github.com/chat-socio/backend/internal/domain"
 	"github.com/chat-socio/backend/internal/usecase"
 	"github.com/chat-socio/backend/pkg/jwt"
+	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/cloudwego/hertz/pkg/app"
 	ws "github.com/hertz-contrib/websocket"
 )
@@ -19,9 +20,13 @@ type WebSocketHandler struct {
 	upgrader          *ws.HertzUpgrader
 	UserOnlineUsecase usecase.UserOnlineUsecase
 	UserUsecase       usecase.UserUseCase
+	obs               *observability.Observability
 }
 
 func (wsh *WebSocketHandler) HandleWebsocket(ctx context.Context, c *app.RequestContext) {
+	ctx, span := wsh.obs.StartSpan(ctx, "WebSocketHandler.HandleWebsocket")
+	defer span()
+
 	// Upgrade the connection to a WebSocket connection
 	err := wsh.upgrader.Upgrade(c, func(conn *ws.Conn) {
 		wsConn, err := websocket.NewWSConnection(conn)
@@ -177,10 +182,11 @@ func (wsh *WebSocketHandler) HandleWebsocket(ctx context.Context, c *app.Request
 	}
 }
 
-func NewWebSocketHandler(upgrader *ws.HertzUpgrader, userOnlineUsecase usecase.UserOnlineUsecase, userUsecase usecase.UserUseCase) *WebSocketHandler {
+func NewWebSocketHandler(upgrader *ws.HertzUpgrader, userOnlineUsecase usecase.UserOnlineUsecase, userUsecase usecase.UserUseCase, obs *observability.Observability) *WebSocketHandler {
 	return &WebSocketHandler{
 		upgrader:          upgrader,
 		UserOnlineUsecase: userOnlineUsecase,
 		UserUsecase:       userUsecase,
+		obs:               obs,
 	}
 }

@@ -3,7 +3,6 @@ package nats
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/nats-io/nats.go"
 )
@@ -17,8 +16,6 @@ func (np *NatsPublisher) Publish(ctx context.Context, subject string, data inter
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Publishing message to subject:", subject)
 	_, err = np.js.Publish(subject, jsonData)
 	return err
 }

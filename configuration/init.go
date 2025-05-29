@@ -7,12 +7,13 @@ import (
 )
 
 type Config struct {
-	Server    *ServerConfig    `yaml:"server,omitempty"`
-	Postgres  *PostgresConfig  `yaml:"postgres,omitempty"`
-	Redis     *RedisConfig     `yaml:"redis,omitempty"`
-	WebSocket *WebSocketConfig `yaml:"websocket,omitempty"`
-	JWT       *JWTConfig       `yaml:"jwt,omitempty"`
-	Nats      *NatsConfig      `yaml:"nats,omitempty"`
+	Server        *ServerConfig        `yaml:"server,omitempty"`
+	Postgres      *PostgresConfig      `yaml:"postgres,omitempty"`
+	Redis         *RedisConfig         `yaml:"redis,omitempty"`
+	WebSocket     *WebSocketConfig     `yaml:"websocket,omitempty"`
+	JWT           *JWTConfig           `yaml:"jwt,omitempty"`
+	Nats          *NatsConfig          `yaml:"nats,omitempty"`
+	Observability *ObservabilityConfig `yaml:"observability,omitempty"`
 }
 
 type ServerConfig struct {
@@ -49,6 +50,12 @@ type JWTConfig struct {
 
 type NatsConfig struct {
 	Address string `yaml:"address,omitempty"`
+}
+
+type ObservabilityConfig struct {
+	TracingEnabled bool   `yaml:"tracing_enabled,omitempty"`
+	JaegerEndpoint string `yaml:"jaeger_endpoint,omitempty"`
+	JaegerService  string `yaml:"jaeger_service,omitempty"`
 }
 
 var ConfigInstance *Config

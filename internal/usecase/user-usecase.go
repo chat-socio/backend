@@ -16,6 +16,7 @@ import (
 	"github.com/chat-socio/backend/internal/domain"
 	"github.com/chat-socio/backend/internal/presenter"
 	"github.com/chat-socio/backend/internal/utils"
+	"github.com/chat-socio/backend/pkg/observability"
 )
 
 var (
@@ -39,10 +40,14 @@ type userUseCase struct {
 	sessionRepository      domain.SessionRepository
 	sessionCacheRepository domain.SessionCacheRepository
 	userCacheRepository    domain.UserCacheRepository
+	obs                    *observability.Observability
 }
 
 // GetUserIDByAccountID implements UserUseCase.
 func (u *userUseCase) GetUserIDByAccountID(ctx context.Context, accountID string) (string, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.GetUserIDByAccountID")
+	defer span()
+
 	userID, err := u.userCacheRepository.GetUserIDByAccountID(ctx, accountID)
 	if err != nil && err != redis.Nil {
 		return "", err
@@ -67,6 +72,9 @@ func (u *userUseCase) GetUserIDByAccountID(ctx context.Context, accountID string
 
 // GetListUser implements UserUseCase.
 func (u *userUseCase) GetListUser(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*presenter.GetUserInfoResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.GetListUser")
+	defer span()
+
 	users, err := u.userRepository.GetListUserWithConversation(ctx, userID, keyword, limit, lastID)
 	if err != nil {
 		return nil, err
@@ -92,6 +100,9 @@ func (u *userUseCase) GetListUser(ctx context.Context, userID string, keyword st
 
 // GetUserInfoByEmail implements UserUseCase.
 func (u *userUseCase) GetUserInfoByEmail(ctx context.Context, email string) (*presenter.GetUserInfoResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.GetUserInfoByEmail")
+	defer span()
+
 	user, err := u.userRepository.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
@@ -111,6 +122,9 @@ func (u *userUseCase) GetUserInfoByEmail(ctx context.Context, email string) (*pr
 
 // GetMyInfo implements UserUseCase.
 func (u *userUseCase) GetMyInfo(ctx context.Context) (*presenter.GetUserInfoResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.GetMyInfo")
+	defer span()
+
 	accountID := ctx.Value(utils.AccountIDKey).(string)
 	user, err := u.userRepository.GetUserByAccountID(ctx, accountID)
 	if err != nil && err != sql.ErrNoRows {
@@ -135,6 +149,9 @@ func (u *userUseCase) GetMyInfo(ctx context.Context) (*presenter.GetUserInfoResp
 
 // GetUserInfo implements UserUseCase.
 func (u *userUseCase) GetUserInfo(ctx context.Context, userID string) (*presenter.GetUserInfoResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.GetUserInfo")
+	defer span()
+
 	user, err := u.userRepository.GetUserByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -154,8 +171,12 @@ func (u *userUseCase) GetUserInfo(ctx context.Context, userID string) (*presente
 
 // Login implements UserUseCase.
 func (u *userUseCase) Login(ctx context.Context, loginRequest *presenter.LoginRequest) (*presenter.LoginResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.Login")
+	defer span()
+
 	userAgent := ctx.Value(utils.UserAgentKey).(string)
 	ipAddress := ctx.Value(utils.IpAddressKey).(string)
+
 	account, err := u.accountRepository.GetAccountByUsername(ctx, loginRequest.Email)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -219,11 +240,18 @@ func (u *userUseCase) Login(ctx context.Context, loginRequest *presenter.LoginRe
 	}
 
 	return loginResponse, nil
-
 }
 
 // Register implements UserUseCase.
 func (u *userUseCase) Register(ctx context.Context, registerRequest *presenter.RegisterRequest) (*presenter.RegisterResponse, error) {
+	ctx, span := u.obs.StartSpan(ctx, "UserUsecase.Register")
+	defer span()
+
+	logger := u.obs.Logger.WithContext(ctx)
+	logger.Info("Starting user registration", map[string]interface{}{
+		"email": registerRequest.Email,
+	})
+
 	accountID, err := uuid.NewID()
 	if err != nil {
 		return nil, err
@@ -260,9 +288,11 @@ func (u *userUseCase) Register(ctx context.Context, registerRequest *presenter.R
 
 	err = u.accountRepository.CreateAccountUser(ctx, account, user)
 	if err != nil {
+		logger.WithError(err).Error("User registration failed")
 		return nil, err
 	}
 
+	logger.Info("User registration completed successfully")
 	registerResponse := &presenter.RegisterResponse{
 		Success: true,
 		Message: "Register success",
@@ -273,12 +303,13 @@ func (u *userUseCase) Register(ctx context.Context, registerRequest *presenter.R
 
 var _ UserUseCase = (*userUseCase)(nil)
 
-func NewUserUseCase(accountRepository domain.AccountRepository, userRepository domain.UserRepository, sessionRepository domain.SessionRepository, sessionCacheRepository domain.SessionCacheRepository, userCacheRepository domain.UserCacheRepository) UserUseCase {
+func NewUserUseCase(accountRepository domain.AccountRepository, userRepository domain.UserRepository, sessionRepository domain.SessionRepository, sessionCacheRepository domain.SessionCacheRepository, userCacheRepository domain.UserCacheRepository, obs *observability.Observability) UserUseCase {
 	return &userUseCase{
 		accountRepository:      accountRepository,
 		userRepository:         userRepository,
 		sessionRepository:      sessionRepository,
 		sessionCacheRepository: sessionCacheRepository,
 		userCacheRepository:    userCacheRepository,
+		obs:                    obs,
 	}
 }

@@ -8,15 +8,20 @@ import (
 	"github.com/chat-socio/backend/internal/presenter"
 	"github.com/chat-socio/backend/internal/usecase"
 	"github.com/chat-socio/backend/internal/utils"
+	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
 type ConversationHandler struct {
 	ConversationUseCase usecase.ConversationUseCase
 	UserUseCase         usecase.UserUseCase
+	Obs                 *observability.Observability
 }
 
 func (ch *ConversationHandler) SendMessage(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.SendMessage")
+	defer span()
+
 	// get account id from context
 	accountID := ctx.Value(utils.AccountIDKey)
 	if accountID == nil {
@@ -66,6 +71,9 @@ func (ch *ConversationHandler) SendMessage(ctx context.Context, c *app.RequestCo
 }
 
 func (ch *ConversationHandler) CreateConversation(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.CreateConversation")
+	defer span()
+
 	var request presenter.CreateConversationRequest
 	if err := c.BindAndValidate(&request); err != nil {
 		c.JSON(http.StatusBadRequest, presenter.BaseResponse[*presenter.ConversationResponse]{
@@ -96,6 +104,9 @@ func (ch *ConversationHandler) CreateConversation(ctx context.Context, c *app.Re
 }
 
 func (ch *ConversationHandler) GetListConversation(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.GetListConversation")
+	defer span()
+
 	accountID := ctx.Value(utils.AccountIDKey)
 	if accountID == nil {
 		c.JSON(http.StatusUnauthorized, presenter.BaseResponse[[]*presenter.GetListConversationResponse]{
@@ -133,6 +144,9 @@ func (ch *ConversationHandler) GetListConversation(ctx context.Context, c *app.R
 }
 
 func (ch *ConversationHandler) GetListMessage(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.GetListMessage")
+	defer span()
+
 	accountID := ctx.Value(utils.AccountIDKey)
 	if accountID == nil {
 		c.JSON(http.StatusUnauthorized, presenter.BaseResponse[[]*presenter.MessageResponse]{
@@ -177,6 +191,9 @@ func (ch *ConversationHandler) GetListMessage(ctx context.Context, c *app.Reques
 }
 
 func (ch *ConversationHandler) GetConversationByID(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.GetConversationByID")
+	defer span()
+
 	conversationID := c.Query("conversation_id")
 
 	conversation, err := ch.ConversationUseCase.GetConversationByID(ctx, conversationID)

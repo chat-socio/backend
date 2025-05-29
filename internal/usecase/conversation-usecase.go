@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
 	"github.com/chat-socio/backend/internal/presenter"
+	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/chat-socio/backend/pkg/pointer"
 	"github.com/chat-socio/backend/pkg/uuid"
 	"github.com/chat-socio/backend/pubsub"
@@ -30,31 +30,37 @@ type conversationUseCase struct {
 	messagePublisher       pubsub.Publisher
 	userOnlineRepository   domain.UserOnlineRepository
 	userRepository         domain.UserRepository
+	obs                    *observability.Observability
 }
 
 // HandleUpdateLastMessageID implements ConversationUseCase.
 func (c *conversationUseCase) HandleUpdateLastMessageID(ctx context.Context, data domain.UpdateLastMessageID) error {
+	logger := c.obs.Logger.WithContext(ctx)
 	err := c.conversationRepository.UpdateLastMessageID(ctx, data.ConversationID, data.MessageID)
 	if err != nil {
-		fmt.Println("error update last message id", err)
+		logger.Error("error update last message id", err, data)
 		return err
 	}
 	conversation, _, err := c.conversationRepository.GetConversationByID(ctx, data.ConversationID)
 	if err != nil {
+		logger.Error("error get conversation by id", err, data)
 		return err
 	}
 
 	message, err := c.messageRepository.GetMessageByID(ctx, data.MessageID)
 	if err != nil {
+		logger.Error("error get message by id", err, data)
 		return err
 	}
 
 	userMap, err := pointer.ToMap(message.User)
 	if err != nil {
+		logger.Error("error convert message to map", err, message)
 		return err
 	}
 	messageMap, err := pointer.ToMap(message)
 	if err != nil {
+		logger.Error("error convert message to map", err, message)
 		return err
 	}
 
@@ -63,6 +69,7 @@ func (c *conversationUseCase) HandleUpdateLastMessageID(ctx context.Context, dat
 	// conversation.LastMessage = message
 	conversationMap, err := pointer.ToMap(conversation)
 	if err != nil {
+		logger.Error("error convert conversation to map", err, conversation)
 		return err
 	}
 	conversationMap["last_message"] = messageMap
@@ -80,9 +87,11 @@ func (c *conversationUseCase) getUserOnlineByConversationID(ctx context.Context,
 }
 
 func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, message *domain.WebSocketMessage) error {
+	logger := c.obs.Logger.WithContext(ctx)
 	// get user online by conversation id
 	userOnlines, err := c.getUserOnlineByConversationID(ctx, message.Payload["conversation_id"].(string))
 	if err != nil {
+		logger.Error("error get user online by conversation id", err, message)
 		return err
 	}
 
@@ -104,7 +113,7 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 
 		b, err := json.Marshal(message)
 		if err != nil {
-			log.Println("failed to marshal message to json", err)
+			logger.Error("failed to marshal message to json", err, message)
 			continue
 		}
 		wsConn.SendMessage(b)
@@ -114,8 +123,10 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 
 func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Context, message *domain.WebSocketMessage) error {
 	// get user online by conversation id
+	logger := c.obs.Logger.WithContext(ctx)
 	userOnlines, err := c.getUserOnlineByConversationID(ctx, message.Payload["id"].(string))
 	if err != nil {
+		logger.Error("error get user online by conversation id", err, message)
 		return err
 	}
 
@@ -135,7 +146,7 @@ func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Con
 		}
 		b, err := json.Marshal(message)
 		if err != nil {
-			log.Println("failed to marshal message to json", err)
+			logger.Error("failed to marshal message to json", err, message)
 			continue
 		}
 		wsConn.SendMessage(b)
@@ -154,13 +165,14 @@ func (c *conversationUseCase) HandleNewMessage(ctx context.Context, message *dom
 	return nil
 }
 
-func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository, userRepository domain.UserRepository) ConversationUseCase {
+func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository, userRepository domain.UserRepository, obs *observability.Observability) ConversationUseCase {
 	return &conversationUseCase{
 		conversationRepository: conversationRepository,
 		messageRepository:      messageRepository,
 		messagePublisher:       messagePublisher,
 		userOnlineRepository:   userOnlineRepository,
 		userRepository:         userRepository,
+		obs:                    obs,
 	}
 }
 
@@ -277,6 +289,8 @@ func (c *conversationUseCase) GetListConversationByUserID(ctx context.Context, u
 
 // GetListMessageByConversationID implements ConversationUseCase.
 func (c *conversationUseCase) GetListMessageByConversationID(ctx context.Context, userID string, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error) {
+	ctx, span := c.obs.StartSpan(ctx, "ConversationUsecase.GetListMessageByConversationID")
+	defer span()
 	// check is member of conversation
 	isMember, err := c.conversationRepository.CheckIsMemberOfConversation(ctx, userID, conversationID)
 	if err != nil {
@@ -314,6 +328,9 @@ func (c *conversationUseCase) GetListMessageByConversationID(ctx context.Context
 
 // SendMessage implements ConversationUseCase.
 func (c *conversationUseCase) SendMessage(ctx context.Context, message *presenter.SendMessageRequest) (*presenter.MessageResponse, error) {
+	ctx, span := c.obs.StartSpan(ctx, "ConversationUsecase.SendMessage")
+	defer span()
+	logger := c.obs.Logger.WithContext(ctx)
 	messageID, err := uuid.NewID()
 	if err != nil {
 		return nil, err
@@ -330,20 +347,24 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 	}
 	messageDomain, err = c.messageRepository.CreateMessage(ctx, messageDomain)
 	if err != nil {
+		logger.Error("error create message", err, message)
 		return nil, err
 	}
 
 	user, err := c.userRepository.GetUserByID(ctx, message.UserID)
 	if err != nil {
+		logger.Error("error get user by id", err, message)
 		return nil, err
 	}
 	userMap, err := pointer.ToMap(user)
 	if err != nil {
+		logger.Error("error convert user to map", err, user)
 		return nil, err
 	}
 
 	messageMap, err := pointer.ToMap(messageDomain)
 	if err != nil {
+		logger.Error("error convert message to map", err, message)
 		return nil, err
 	}
 	messageMap["user"] = userMap
@@ -355,8 +376,8 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 	// send message to websocket
 	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, wsMessage)
 	if err != nil {
-		// TODO: log error for tracing
-		return nil, fmt.Errorf("failed to publish message to websocket: %w", err)
+		logger.Error("failed to publish message to websocket", err, message)
+		// return nil, fmt.Errorf("failed to publish message to websocket: %w", err)
 	}
 	// update last message id of conversation
 	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_UPDATE_LAST_MESSAGE_ID, domain.UpdateLastMessageID{
@@ -365,8 +386,8 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 	})
 
 	if err != nil {
-		// TODO: log error for tracing
-		return nil, fmt.Errorf("failed to publish message to websocket: %w", err)
+		logger.Error("failed to publish message to websocket", err, message)
+		// return nil, fmt.Errorf("failed to publish message to websocket: %w", err)
 	}
 
 	return &presenter.MessageResponse{
