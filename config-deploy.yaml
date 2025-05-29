@@ -1,0 +1,27 @@
+server:
+  port: 8080
+  origin: "http://localhost:8080"
+postgres:
+  host: postgres
+  port: 5432
+  username: postgres
+  password: password
+  database: chat_socio
+  sslmode: disable
+
+redis:
+  host: redis
+  port: 6379
+  password: ""
+  database: 0
+
+websocket:
+  origin: "http://localhost:8080"
+
+jwt:
+  secret: "ASDWRTGHJKLQWERTYUIOPZXCVBNMASDFGHJKLQWERTYUIOPZXCVBNM"
+  issuer: "chat_socio"
+  expiration: 3600
+
+nats:
+  address: "nats://nats:4222"
