@@ -133,14 +133,36 @@ func (ch *ConversationHandler) GetListConversation(ctx context.Context, c *app.R
 }
 
 func (ch *ConversationHandler) GetListMessage(ctx context.Context, c *app.RequestContext) {
+	accountID := ctx.Value(utils.AccountIDKey)
+	if accountID == nil {
+		c.JSON(http.StatusUnauthorized, presenter.BaseResponse[[]*presenter.MessageResponse]{
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, err := ch.UserUseCase.GetUserIDByAccountID(ctx, accountID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[[]*presenter.MessageResponse]{
+			Message: err.Error(),
+		})
+		return
+	}
+
 	conversationID := c.Query("conversation_id")
+	if conversationID == "" {
+		c.JSON(http.StatusBadRequest, presenter.BaseResponse[[]*presenter.MessageResponse]{
+			Message: "Conversation ID is required",
+		})
+		return
+	}
 	lastMessageID := c.Query("last_message_id")
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		limit = 20
 	}
 
-	listMessage, err := ch.ConversationUseCase.GetListMessageByConversationID(ctx, conversationID, lastMessageID, limit)
+	listMessage, err := ch.ConversationUseCase.GetListMessageByConversationID(ctx, userID, conversationID, lastMessageID, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[[]*presenter.MessageResponse]{
 			Message: err.Error(),

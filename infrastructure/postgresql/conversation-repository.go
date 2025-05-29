@@ -216,3 +216,13 @@ var _ domain.ConversationRepository = &conversationRepository{}
 func NewConversationRepository(db *pgxpool.Pool) domain.ConversationRepository {
 	return &conversationRepository{db: db}
 }
+
+func (c *conversationRepository) CheckIsMemberOfConversation(ctx context.Context, userID string, conversationID string) (bool, error) {
+	var isMember int
+	query := `SELECT 1 FROM conversation_member WHERE user_id = $1 AND conversation_id = $2`
+	err := c.db.QueryRow(ctx, query, userID, conversationID).Scan(&isMember)
+	if err != nil {
+		return false, err
+	}
+	return isMember == 1, nil
+}

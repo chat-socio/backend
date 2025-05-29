@@ -42,7 +42,7 @@ func (m *messageRepository) GetListMessageByConversationID(ctx context.Context, 
 	}
 	condition := "conversation_id = $1"
 	if lastID != "" {
-		condition = fmt.Sprintf("%s AND id < $2", condition)
+		condition = fmt.Sprintf("%s AND m.id < $2", condition)
 	}
 	query := fmt.Sprintf(`SELECT %s FROM message AS m JOIN user_info AS u ON m.user_id = u.id WHERE %s ORDER BY m.id DESC LIMIT %d`, strings.Join(fields, ","), condition, limit)
 	var params []any

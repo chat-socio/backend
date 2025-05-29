@@ -17,7 +17,7 @@ import (
 type ConversationUseCase interface {
 	GetListConversationByUserID(ctx context.Context, userID string, lastMessageID string, limit int) ([]*presenter.GetListConversationResponse, error)
 	GetConversationByID(ctx context.Context, conversationID string) (*presenter.ConversationResponse, error)
-	GetListMessageByConversationID(ctx context.Context, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error)
+	GetListMessageByConversationID(ctx context.Context, userID string, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error)
 	CreateConversation(ctx context.Context, conversation *presenter.CreateConversationRequest) (*presenter.ConversationResponse, error)
 	SendMessage(ctx context.Context, message *presenter.SendMessageRequest) (*presenter.MessageResponse, error)
 	HandleNewMessage(ctx context.Context, message *domain.WebSocketMessage) error
@@ -259,7 +259,16 @@ func (c *conversationUseCase) GetListConversationByUserID(ctx context.Context, u
 }
 
 // GetListMessageByConversationID implements ConversationUseCase.
-func (c *conversationUseCase) GetListMessageByConversationID(ctx context.Context, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error) {
+func (c *conversationUseCase) GetListMessageByConversationID(ctx context.Context, userID string, conversationID string, lastMessageID string, limit int) ([]*presenter.MessageResponse, error) {
+	// check is member of conversation
+	isMember, err := c.conversationRepository.CheckIsMemberOfConversation(ctx, userID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, fmt.Errorf("user is not a member of conversation")
+	}
+	// get list message by conversation id
 	messages, err := c.messageRepository.GetListMessageByConversationID(ctx, conversationID, lastMessageID, limit)
 	if err != nil {
 		return nil, err
