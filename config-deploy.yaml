@@ -25,3 +25,9 @@ jwt:
 
 nats:
   address: "nats://nats:4222"
+
+observability:
+  tracing_enabled: true
+  jaeger_endpoint: jeager:4318
+  jaeger_service: "chat-socio"
+
