@@ -22,7 +22,6 @@ A backend service for a real-time chat application built with Go.
 - Nats (for pubsub)
 - Prometheus (for metrics)
 - Jaeger (for tracing)
-- Grafana (for visualization)
 
 ## Configuration
 
@@ -50,19 +49,10 @@ jwt:
     secret: "ASDWRTGHJKLQWERTYUIOPZXCVBNMASDFGHJKLQWERTYUIOPZXCVBNM"
     issuer: "chat_socio"
     expiration: 3600
-logging:
-    level: "info"
-    format: "json"
-    output: "stdout"
-metrics:
-    enabled: true
-    port: 9090
-    path: "/metrics"
-tracing:
-    enabled: true
-    endpoint: "http://localhost:14268/api/traces"
-    service_name: "chat-service"
-    sample_rate: 1.0
+observability:
+    tracing_enabled: true
+    jaeger_endpoint: localhost:4318
+    jaeger_service: "chat-socio"
 ```
 
 ## Run
@@ -101,10 +91,6 @@ go run cmd/app/main.go
 - Log levels: DEBUG, INFO, WARN, ERROR
 - Request/response logging with timing
 
-### Health Checks
-- Health endpoint: `GET /health`
-- Ready endpoint: `GET /ready`
-- Metrics endpoint: `GET /metrics`
 
 ## Technology Stack
 - **Runtime**: Go 1.24
@@ -113,8 +99,5 @@ go run cmd/app/main.go
 - **Message Queue**: Nats 2.9.x
 - **HTTP Server**: Hertz (https://github.com/cloudwego/hertz)
 - **Authentication**: JWT
-- **Logging**: Structured logging with correlation IDs
-- **Metrics**: Prometheus with custom business metrics
-- **Tracing**: OpenTelemetry with Jaeger backend
-- **Monitoring**: Grafana dashboards
-- **Container**: Docker & Docker Compose
+- **Observability**: OpenTelemetry with Jaeger backend
+
