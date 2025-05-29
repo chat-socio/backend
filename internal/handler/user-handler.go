@@ -121,13 +121,19 @@ func (uh *UserHandler) GetMyInfo(ctx context.Context, c *app.RequestContext) {
 
 func (uh *UserHandler) GetListUser(ctx context.Context, c *app.RequestContext) {
 	// Extract params from request
+	accountID := ctx.Value(utils.AccountIDKey).(string)
+	userID, err := uh.UserUseCase.GetUserIDByAccountID(ctx, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[any]{Message: fmt.Sprintf("Internal server error: %v", err)})
+		return
+	}
 	keyword := c.Query("keyword")
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {
 		limit = 10
 	}
 	lastID := c.Query("last_id")
-	response, err := uh.UserUseCase.GetListUser(ctx, keyword, limit, lastID)
+	response, err := uh.UserUseCase.GetListUser(ctx, userID, keyword, limit, lastID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[any]{Message: fmt.Sprintf("Internal server error: %v", err)})
 		return

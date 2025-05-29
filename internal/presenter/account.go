@@ -70,14 +70,15 @@ type LoginResponse struct {
 }
 
 type GetUserInfoResponse struct {
-	AccountID string     `json:"account_id,omitempty"`
-	UserID    string     `json:"user_id,omitempty"`
-	Type      string     `json:"type,omitempty"`
-	Email     string     `json:"email,omitempty"`
-	FullName  string     `json:"full_name,omitempty"`
-	Avatar    string     `json:"avatar,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	AccountID      string     `json:"account_id,omitempty"`
+	UserID         string     `json:"user_id,omitempty"`
+	Type           string     `json:"type,omitempty"`
+	Email          string     `json:"email,omitempty"`
+	FullName       string     `json:"full_name,omitempty"`
+	Avatar         string     `json:"avatar,omitempty"`
+	CreatedAt      *time.Time `json:"created_at,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
+	ConversationID *string    `json:"conversation_id,omitempty"`
 }
 
 type UserResponse struct {

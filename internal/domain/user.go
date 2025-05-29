@@ -10,15 +10,16 @@ const (
 )
 
 type UserInfo struct {
-	ID        string     `json:"id,omitempty"`
-	AccountID string     `json:"account_id,omitempty"`
-	Type      string     `json:"type,omitempty"`
-	Email     string     `json:"email,omitempty"`
-	FullName  string     `json:"full_name,omitempty"`
-	Avatar    string     `json:"avatar,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	ID             string     `json:"id,omitempty"`
+	AccountID      string     `json:"account_id,omitempty"`
+	Type           string     `json:"type,omitempty"`
+	Email          string     `json:"email,omitempty"`
+	FullName       string     `json:"full_name,omitempty"`
+	Avatar         string     `json:"avatar,omitempty"`
+	CreatedAt      *time.Time `json:"created_at,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	ConversationID *string    `json:"-"` // for query conversation with another user
 }
 
 func (u *UserInfo) TableName() string {

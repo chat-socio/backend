@@ -60,6 +60,66 @@ func (u *userRepository) GetListUser(ctx context.Context, keyword string, limit 
 	return users, nil
 }
 
+func (u *userRepository) GetListUserWithConversation(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*domain.UserInfo, error) {
+	
+	var users []*domain.UserInfo
+	var user domain.UserInfo
+	fields, _ := user.MapFields()
+	query := fmt.Sprintf(`
+		WITH user_conversations AS (
+			SELECT DISTINCT cm.user_id, cm.conversation_id 
+			FROM conversation_member cm
+			WHERE cm.conversation_id IN (
+				SELECT conversation_id 
+				FROM conversation_member 
+				WHERE user_id = $1
+			)
+		)
+		SELECT %s, uc.conversation_id
+		FROM %s u 
+		LEFT JOIN user_conversations uc ON u.id = uc.user_id
+		WHERE u.id != $1`, strings.Join(fields, ","), user.TableName())
+
+	args := []any{userID}
+	conditions := []string{}
+
+	if keyword != "" {
+		conditions = append(conditions, fmt.Sprintf("(u.full_name ILIKE $%d OR u.email ILIKE $%d)", len(args)+1, len(args)+2))
+		args = append(args, "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	if lastID != "" {
+		conditions = append(conditions, fmt.Sprintf("u.id < $%d", len(args)+1))
+		args = append(args, lastID)
+	}
+
+	conditions = append(conditions, "u.type = 'EXTERNAL'")
+
+	if len(conditions) > 0 {
+		query = fmt.Sprintf("%s AND %s", query, strings.Join(conditions, " AND "))
+	}
+
+	query = fmt.Sprintf("%s ORDER BY u.id DESC LIMIT $%d", query, len(args)+1)
+	args = append(args, limit)
+
+	rows, err := u.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user domain.UserInfo
+		_, values := user.MapFields()
+		values = append(values, &user.ConversationID)
+		if err := rows.Scan(values...); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+	return users, nil
+}
+
 // CreateUser implements domain.UserRepository.
 func (u *userRepository) CreateUser(ctx context.Context, user *domain.UserInfo) error {
 	query := `INSERT INTO user_info (id ,account_id, type, email, full_name, avatar, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`

@@ -19,8 +19,9 @@ const (
 // The WebSocketMessage struct implements the json.Marshaler and json.Unmarshaler interfaces,
 // allowing it to be easily converted to and from JSON format.
 type WebSocketMessage struct {
-	Type    WebSocketMessageType `json:"type,omitempty"`
-	Payload map[string]any       `json:"payload,omitempty"`
+	Type              WebSocketMessageType `json:"type,omitempty"`
+	Payload           map[string]any       `json:"payload,omitempty"`
+	IgnoreUserOnlines []string             `json:"ignore_user_onlines,omitempty"`
 }
 
 func NewWebSocketMessage(messageType WebSocketMessageType, payload map[string]any) *WebSocketMessage {

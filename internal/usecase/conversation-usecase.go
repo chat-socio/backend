@@ -85,9 +85,18 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 	if err != nil {
 		return err
 	}
+
+	mapIgnoreUserOnlines := make(map[string]bool)
+	for _, userOnline := range userOnlines {
+		mapIgnoreUserOnlines[userOnline.UserID] = true
+	}
+
 	// send message to websocket
 	for _, userOnline := range userOnlines {
-		// TODO: exclude user who send message
+		// exclude user who send message
+		if _, ok := mapIgnoreUserOnlines[userOnline.UserID]; ok {
+			continue
+		}
 		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
 		if !ok {
 			continue
@@ -109,9 +118,17 @@ func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Con
 	if err != nil {
 		return err
 	}
+
+	mapIgnoreUserOnlines := make(map[string]bool)
+	for _, userOnline := range userOnlines {
+		mapIgnoreUserOnlines[userOnline.UserID] = true
+	}
 	// send message to websocket
 	for _, userOnline := range userOnlines {
-		// TODO: exclude user who send message
+		// exclude user who send message
+		if _, ok := mapIgnoreUserOnlines[userOnline.UserID]; ok {
+			continue
+		}
 		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
 		if !ok {
 			continue
@@ -331,8 +348,9 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 	}
 	messageMap["user"] = userMap
 	wsMessage := &domain.WebSocketMessage{
-		Type:    domain.WsMessage,
-		Payload: messageMap,
+		Type:              domain.WsMessage,
+		Payload:           messageMap,
+		IgnoreUserOnlines: []string{message.UserID},
 	}
 	// send message to websocket
 	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, wsMessage)

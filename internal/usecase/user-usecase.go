@@ -29,7 +29,7 @@ type UserUseCase interface {
 	GetUserInfo(ctx context.Context, userID string) (*presenter.GetUserInfoResponse, error)
 	GetMyInfo(ctx context.Context) (*presenter.GetUserInfoResponse, error)
 	GetUserInfoByEmail(ctx context.Context, email string) (*presenter.GetUserInfoResponse, error)
-	GetListUser(ctx context.Context, keyword string, limit int, lastID string) ([]*presenter.GetUserInfoResponse, error)
+	GetListUser(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*presenter.GetUserInfoResponse, error)
 	GetUserIDByAccountID(ctx context.Context, accountID string) (string, error)
 }
 
@@ -66,8 +66,8 @@ func (u *userUseCase) GetUserIDByAccountID(ctx context.Context, accountID string
 }
 
 // GetListUser implements UserUseCase.
-func (u *userUseCase) GetListUser(ctx context.Context, keyword string, limit int, lastID string) ([]*presenter.GetUserInfoResponse, error) {
-	users, err := u.userRepository.GetListUser(ctx, keyword, limit, lastID)
+func (u *userUseCase) GetListUser(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*presenter.GetUserInfoResponse, error) {
+	users, err := u.userRepository.GetListUserWithConversation(ctx, userID, keyword, limit, lastID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,14 +75,15 @@ func (u *userUseCase) GetListUser(ctx context.Context, keyword string, limit int
 	userResponses := make([]*presenter.GetUserInfoResponse, 0)
 	for _, user := range users {
 		userResponses = append(userResponses, &presenter.GetUserInfoResponse{
-			UserID:    user.ID,
-			Email:     user.Email,
-			FullName:  user.FullName,
-			Avatar:    user.Avatar,
-			Type:      user.Type,
-			AccountID: user.AccountID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
+			UserID:         user.ID,
+			Email:          user.Email,
+			FullName:       user.FullName,
+			Avatar:         user.Avatar,
+			Type:           user.Type,
+			AccountID:      user.AccountID,
+			CreatedAt:      user.CreatedAt,
+			UpdatedAt:      user.UpdatedAt,
+			ConversationID: user.ConversationID,
 		})
 	}
 

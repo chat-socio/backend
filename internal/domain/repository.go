@@ -20,6 +20,7 @@ type UserRepository interface {
 	GetUserByAccountID(ctx context.Context, accountID string) (*UserInfo, error)
 	UpdateUser(ctx context.Context, user *UserInfo) error
 	GetListUser(ctx context.Context, keyword string, limit int, lastID string) ([]*UserInfo, error)
+	GetListUserWithConversation(ctx context.Context, userID string, keyword string, limit int, lastID string) ([]*UserInfo, error)
 }
 
 type SessionRepository interface {

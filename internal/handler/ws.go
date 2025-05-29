@@ -117,7 +117,12 @@ func (wsh *WebSocketHandler) HandleWebsocket(ctx context.Context, c *app.Request
 				wsConn.Close()
 				return
 			}
-			wsConn.SendMessage(fmt.Appendf(nil, "Token is valid, account ID: %s, connectionID: %s", claims.Sub, wsConn.GetID()))
+			wsResonse := domain.NewWebSocketMessage(domain.WsAuthorization, map[string]any{
+				"account_id":     claims.Sub,
+				"user_id":        userID,
+				"user_online_id": userOnline.ID,
+			})
+			wsConn.SendMessage([]byte(wsResonse.String()))
 		default:
 			// Close the connection if the message type is not recognized
 			wsConn.SendMessage(fmt.Appendf(nil, "Unknown message type"))
