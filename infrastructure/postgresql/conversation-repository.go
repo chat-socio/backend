@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -97,37 +98,91 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 		params = append(params, lastMessageID)
 	}
 	// Add NULL handling for last_message_id
-	fieldsWithCoalesce := []string{
-		"c.id",
-		"c.created_at",
-		"c.type",
-		"c.title",
-		"c.avatar",
-		"c.updated_at",
-		"c.deleted_at",
-		"COALESCE(c.last_message_id::text, '')", // Handle NULL last_message_id
-		"COALESCE(m.id::text, '')",              // Handle NULL message id
-		"COALESCE(m.conversation_id::text, '')",
-		"COALESCE(m.user_id::text, '')",
-		"COALESCE(m.type::text, '')",
-		"COALESCE(m.body::text, '')",
-		"COALESCE(m.created_at, NULL)",
-		"COALESCE(m.updated_at, NULL)",
-		"COALESCE(m.reply_to::text, '')",
-		"COALESCE(ui.full_name::text, '')",
-		"COALESCE(ui.avatar::text, '')",
-		"COALESCE(ui.type::text, '')",
-	}
+	// fieldsWithCoalesce := []string{
+	// 	"c.id",
+	// 	"c.created_at",
+	// 	"c.type",
+	// 	"c.title",
+	// 	"c.avatar",
+	// 	"c.updated_at",
+	// 	"c.deleted_at",
+	// 	"COALESCE(c.last_message_id::text, '')", // Handle NULL last_message_id
+	// 	"COALESCE(m.id::text, '')",              // Handle NULL message id
+	// 	"COALESCE(m.conversation_id::text, '')",
+	// 	"COALESCE(m.user_id::text, '')",
+	// 	"COALESCE(m.type::text, '')",
+	// 	"COALESCE(m.body::text, '')",
+	// 	"COALESCE(m.created_at, NULL)",
+	// 	"COALESCE(m.updated_at, NULL)",
+	// 	"COALESCE(m.reply_to::text, '')",
+	// 	"COALESCE(ui.full_name::text, '')",
+	// 	"COALESCE(ui.avatar::text, '')",
+	// 	"COALESCE(ui.type::text, '')",
+	// }
 
-	query := fmt.Sprintf(`SELECT %s FROM conversation c
-		LEFT JOIN message m ON c.last_message_id = m.id
-		LEFT JOIN user_info ui ON m.user_id = ui.id
-		WHERE c.id IN (SELECT DISTINCT conversation_id FROM conversation_member WHERE user_id = $1) %s
-		ORDER BY last_message_id DESC LIMIT %d`, strings.Join(fieldsWithCoalesce, ", "), conditionLastMessageID, limit)
+	// query := fmt.Sprintf(`SELECT %s FROM conversation c
+	// 	LEFT JOIN message m ON c.last_message_id = m.id
+	// 	LEFT JOIN user_info ui ON m.user_id = ui.id
+	// 	WHERE c.id IN (SELECT DISTINCT conversation_id FROM conversation_member WHERE user_id = $1) %s
+	// 	ORDER BY last_message_id DESC LIMIT %d`, strings.Join(fieldsWithCoalesce, ", "), conditionLastMessageID, limit)
+
+	query := fmt.Sprintf(`
+		WITH conversation_data AS (
+			SELECT c.id, c.created_at, c.type, c.title, c.avatar, c.updated_at, c.deleted_at, 
+				COALESCE(c.last_message_id::text, '') as last_message_id,
+				COALESCE(m.id::text, '') as message_id,
+				COALESCE(m.conversation_id::text, '') as message_conversation_id,
+				COALESCE(m.user_id::text, '') as message_user_id,
+				COALESCE(m.type::text, '') as message_type,
+				COALESCE(m.body::text, '') as message_body,
+				COALESCE(m.created_at, NULL) as message_created_at,
+				COALESCE(m.updated_at, NULL) as message_updated_at,
+				COALESCE(m.reply_to::text, '') as message_reply_to,
+				COALESCE(ui.id::text, '') as user_id,
+				COALESCE(ui.full_name::text, '') as user_full_name,
+				COALESCE(ui.avatar::text, '') as user_avatar,
+				COALESCE(ui.type::text, '') as user_type
+			FROM conversation c
+			LEFT JOIN message m ON c.last_message_id = m.id
+			LEFT JOIN user_info ui ON m.user_id = ui.id
+			WHERE c.id IN (
+				SELECT DISTINCT conversation_id 
+				FROM conversation_member 
+				WHERE user_id = $1
+			) %s
+			ORDER BY c.last_message_id DESC
+			LIMIT %d
+		),
+		conversation_members AS (
+			SELECT 
+				cm.conversation_id,
+				json_agg(
+					json_build_object(
+						'id', ui.id,
+						'full_name', ui.full_name,
+						'avatar', ui.avatar,
+						'type', ui.type
+					)
+				) as members
+			FROM conversation_member cm
+			INNER JOIN user_info ui ON cm.user_id = ui.id
+			WHERE cm.conversation_id IN (SELECT id FROM conversation_data)
+			GROUP BY cm.conversation_id
+		)
+		SELECT 
+			cd.*,
+			COALESCE(cm.members::text, '[]') as members
+		FROM conversation_data cd
+		LEFT JOIN conversation_members cm ON cd.id = cm.conversation_id
+		ORDER BY cd.last_message_id DESC`, conditionLastMessageID, limit)
 
 	rows, err := c.db.Query(ctx, query, params...)
-	if err != nil {
+	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
+	}
+
+	if err == pgx.ErrNoRows {
+		return []*domain.Conversation{}, nil
 	}
 	defer rows.Close()
 
@@ -135,6 +190,8 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 		var conversation domain.Conversation
 		var message domain.Message
 		var userInfo domain.UserInfo
+		var members []*domain.UserInfo
+		var membersString string
 		values := []any{
 			&conversation.ID,
 			&conversation.CreatedAt,
@@ -152,9 +209,11 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 			&message.CreatedAt,
 			&message.UpdatedAt,
 			&message.ReplyTo,
+			&userInfo.ID,
 			&userInfo.FullName,
 			&userInfo.Avatar,
 			&userInfo.Type,
+			&membersString,
 		}
 		if err := rows.Scan(values...); err != nil {
 			return nil, err
@@ -169,6 +228,13 @@ func (c *conversationRepository) GetListConversationByUserID(ctx context.Context
 			}
 			conversation.LastMessage = &message
 		}
+		fmt.Println(membersString)
+		err = json.Unmarshal([]byte(membersString), &members)
+		if err != nil {
+			return nil, err
+		}
+		conversation.Members = members
+		fmt.Println(conversation.Members)
 		conversations = append(conversations, &conversation)
 	}
 

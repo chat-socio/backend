@@ -34,7 +34,15 @@ type Handler struct {
 }
 
 func CreateStream(js natsjs.JetStreamContext) error {
-	_, err := js.AddStream(&natsjs.StreamConfig{
+	err := js.DeleteStream(domain.STREAM_NAME_CONVERSATION)
+	if err != nil {
+		return err
+	}
+	err = js.DeleteStream(domain.STREAM_NAME_WS_MESSAGE)
+	if err != nil {
+		return err
+	}
+	_, err = js.AddStream(&natsjs.StreamConfig{
 		Name:     domain.STREAM_NAME_CONVERSATION,
 		Subjects: []string{domain.SUBJECT_WILDCARD_CONVERSATION},
 	})
@@ -102,13 +110,14 @@ func RunApp() {
 	conversationRepository := postgresql.NewConversationRepository(db)
 	messageRepository := postgresql.NewMessageRepository(db)
 	userOnlineRepository := postgresql.NewUserOnlineRepository(db)
+	seenMessageRepository := postgresql.NewSeenMessageRepository(db, observability)
 
 	// Initialize publisher
 	messagePublisher := nats.NewPublisher(js)
 
 	// Initialize use cases
 	userUseCase := usecase.NewUserUseCase(accountRepository, userRepository, sessionRepository, sessionCacheRepository, userCacheRepository, observability)
-	conversationUseCase := usecase.NewConversationUseCase(conversationRepository, messageRepository, messagePublisher, userOnlineRepository, userRepository, observability)
+	conversationUseCase := usecase.NewConversationUseCase(conversationRepository, messageRepository, messagePublisher, userOnlineRepository, userRepository, seenMessageRepository, observability)
 	userOnlineUseCase := usecase.NewUserOnlineUsecase(userOnlineRepository)
 
 	// Initialize the handler
@@ -144,6 +153,12 @@ func RunApp() {
 
 	UpdateLastMessageSubscriber := nats.NewQueueSubscriber(js, domain.QUEUE_NAME_WS_MESSAGE_UPDATE_LAST_MESSAGE, domain.CONSUMER_NAME_WS_MESSAGE_UPDATE_LAST_MESSAGE)
 	err = UpdateLastMessageSubscriber.Subscribe(ctx, domain.SUBJECT_UPDATE_LAST_MESSAGE_ID, nats.WrapHandler(conversationUseCase.HandleUpdateLastMessageID))
+	if err != nil {
+		panic(err)
+	}
+
+	SeenMessageSubscriber := nats.NewQueueSubscriber(js, domain.QUEUE_NAME_SEEN_MESSAGE, domain.CONSUMER_NAME_SEEN_MESSAGE)
+	err = SeenMessageSubscriber.Subscribe(ctx, domain.SUBJECT_SEEN_MESSAGE, nats.WrapHandler(conversationUseCase.HandleSeenMessage))
 	if err != nil {
 		panic(err)
 	}
@@ -198,6 +213,9 @@ func SetUpRoutes(s *server.Hertz, handler *Handler) {
 
 	// Upload
 	authGroup.POST("/upload", handler.UploadHandler.UploadFile)
+
+	// Seen message
+	authGroup.POST("/seen-message", handler.ConversationHandler.SeenMessage)
 
 	s.GET("/ws", handler.WebSocketHandler.HandleWebsocket)
 }

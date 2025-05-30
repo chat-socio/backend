@@ -225,3 +225,44 @@ func (ch *ConversationHandler) GetConversationByID(ctx context.Context, c *app.R
 		Message: "Conversation fetched successfully",
 	})
 }
+
+func (ch *ConversationHandler) SeenMessage(ctx context.Context, c *app.RequestContext) {
+	ctx, span := ch.Obs.StartSpan(ctx, "ConversationHandler.SeenMessage")
+	defer span()
+
+	var request presenter.SeenMessageRequest
+	if err := c.BindAndValidate(&request); err != nil {
+		c.JSON(http.StatusBadRequest, presenter.BaseResponse[any]{
+			Message: err.Error(),
+		})
+		return
+	}
+
+	accountID := ctx.Value(utils.AccountIDKey)
+	if accountID == nil {
+		c.JSON(http.StatusUnauthorized, presenter.BaseResponse[any]{
+			Message: "Unauthorized",
+		})
+		return
+	}
+
+	userID, err := ch.UserUseCase.GetUserIDByAccountID(ctx, accountID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[any]{
+			Message: err.Error(),
+		})
+		return
+	}
+
+	err = ch.ConversationUseCase.SeenMessage(ctx, request.ConversationID, request.MessageID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[any]{
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, presenter.BaseResponse[any]{
+		Message: "Seen message successfully",
+	})
+}

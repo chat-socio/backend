@@ -10,6 +10,7 @@ const (
 	WsPing              = "PING"
 	WsPong              = "PONG"
 	WsUpdateLastMessage = "UPDATE_LAST_MESSAGE"
+	WsSeenMessage       = "SEEN_MESSAGE"
 )
 
 // WebSocketMessage represents a message sent over a WebSocket connection.

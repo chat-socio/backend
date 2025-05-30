@@ -62,3 +62,8 @@ type UserCacheRepository interface {
 	GetUserIDByAccountID(ctx context.Context, accountID string) (string, error)
 	SetUserIDByAccountID(ctx context.Context, accountID string, userID string) error
 }
+
+type SeenMessageRepository interface {
+	CreateSeenMessage(ctx context.Context, seenMessage *SeenMessage) error
+	GetListSeenMessageByConversationID(ctx context.Context, conversationID string) ([]*SeenMessage, error)
+}

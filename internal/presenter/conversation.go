@@ -89,12 +89,26 @@ type MessageResponse struct {
 }
 
 type GetListConversationResponse struct {
-	ConversationID string           `json:"conversation_id,omitempty"`
-	Title          string           `json:"title,omitempty"`
-	Avatar         string           `json:"avatar,omitempty"`
-	LastMessageID  string           `json:"last_message_id,omitempty"`
-	CreatedAt      *time.Time       `json:"created_at,omitempty"`
-	UpdatedAt      *time.Time       `json:"updated_at,omitempty"`
-	Type           string           `json:"type,omitempty"`
-	LastMessage    *MessageResponse `json:"last_message,omitempty"`
+	ConversationID string                        `json:"conversation_id,omitempty"`
+	Title          string                        `json:"title,omitempty"`
+	Avatar         string                        `json:"avatar,omitempty"`
+	LastMessageID  string                        `json:"last_message_id,omitempty"`
+	CreatedAt      *time.Time                    `json:"created_at,omitempty"`
+	UpdatedAt      *time.Time                    `json:"updated_at,omitempty"`
+	Type           string                        `json:"type,omitempty"`
+	LastMessage    *MessageResponse              `json:"last_message,omitempty"`
+	Members        []*ConversationMemberResponse `json:"members,omitempty"`
+}
+
+type SeenMessageResponse struct {
+	MessageID      string     `json:"message_id,omitempty"`
+	UserID         string     `json:"user_id,omitempty"`
+	ConversationID string     `json:"conversation_id,omitempty"`
+	CreatedAt      *time.Time `json:"created_at,omitempty"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty"`
+}
+
+type SeenMessageRequest struct {
+	ConversationID string `json:"conversation_id,omitempty"`
+	MessageID      string `json:"message_id,omitempty"`
 }

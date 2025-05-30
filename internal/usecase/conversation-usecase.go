@@ -22,6 +22,9 @@ type ConversationUseCase interface {
 	SendMessage(ctx context.Context, message *presenter.SendMessageRequest) (*presenter.MessageResponse, error)
 	HandleNewMessage(ctx context.Context, message *domain.WebSocketMessage) error
 	HandleUpdateLastMessageID(ctx context.Context, data domain.UpdateLastMessageID) error
+	SeenMessage(ctx context.Context, messageID string, userID string, conversationID string) error
+	GetListSeenMessageByConversationID(ctx context.Context, conversationID string) ([]*presenter.SeenMessageResponse, error)
+	HandleSeenMessage(ctx context.Context, message *domain.SeenMessage) error
 }
 
 type conversationUseCase struct {
@@ -30,7 +33,77 @@ type conversationUseCase struct {
 	messagePublisher       pubsub.Publisher
 	userOnlineRepository   domain.UserOnlineRepository
 	userRepository         domain.UserRepository
+	seenMessageRepository  domain.SeenMessageRepository
 	obs                    *observability.Observability
+}
+
+func (c *conversationUseCase) HandleSeenMessage(ctx context.Context, message *domain.SeenMessage) error {
+	logger := c.obs.Logger.WithContext(ctx)
+	id, err := uuid.NewID()
+	if err != nil {
+		logger.Error("failed to generate id", err)
+		return err
+	}
+	message.ID = id
+	err = c.seenMessageRepository.CreateSeenMessage(ctx, message)
+	if err != nil {
+		logger.Error("failed to upsert seen message", err, message)
+		return err
+	}
+	wsMessage := &domain.WebSocketMessage{
+		Type: domain.WsSeenMessage,
+		Payload: map[string]any{
+			"conversation_id": message.ConversationID,
+			"message_id":      message.MessageID,
+			"user_id":         message.UserID,
+		},
+	}
+	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_SEEN_MESSAGE, wsMessage)
+	if err != nil {
+		logger.Error("failed to publish seen message", err, message)
+		return err
+	}
+	return nil
+}
+
+// GetListSeenMessageByConversationID implements ConversationUseCase.
+func (c *conversationUseCase) GetListSeenMessageByConversationID(ctx context.Context, conversationID string) ([]*presenter.SeenMessageResponse, error) {
+	ctx, span := c.obs.StartSpan(ctx, "ConversationUsecase.GetListSeenMessageByConversationID")
+	defer span()
+	logger := c.obs.Logger.WithContext(ctx)
+	seenMessages, err := c.seenMessageRepository.GetListSeenMessageByConversationID(ctx, conversationID)
+	if err != nil {
+		logger.Error("failed to get list seen message by conversation id", err, conversationID)
+		return nil, err
+	}
+	seenMessageResponses := make([]*presenter.SeenMessageResponse, 0)
+	for _, seenMessage := range seenMessages {
+		seenMessageResponses = append(seenMessageResponses, &presenter.SeenMessageResponse{
+			MessageID:      seenMessage.MessageID,
+			UserID:         seenMessage.UserID,
+			ConversationID: seenMessage.ConversationID,
+			CreatedAt:      seenMessage.CreatedAt,
+			UpdatedAt:      seenMessage.UpdatedAt,
+		})
+	}
+	return seenMessageResponses, nil
+}
+
+// SeenMessage implements ConversationUseCase.
+func (c *conversationUseCase) SeenMessage(ctx context.Context, messageID string, userID string, conversationID string) error {
+	ctx, span := c.obs.StartSpan(ctx, "ConversationUsecase.SeenMessage")
+	defer span()
+	logger := c.obs.Logger.WithContext(ctx)
+	err := c.messagePublisher.Publish(ctx, domain.SUBJECT_SEEN_MESSAGE, domain.SeenMessage{
+		MessageID:      messageID,
+		UserID:         userID,
+		ConversationID: conversationID,
+	})
+	if err != nil {
+		logger.Error("failed to publish seen message", err, messageID, userID, conversationID)
+		return err
+	}
+	return nil
 }
 
 // HandleUpdateLastMessageID implements ConversationUseCase.
@@ -169,17 +242,20 @@ func (c *conversationUseCase) HandleNewMessage(ctx context.Context, message *dom
 		return c.handleSendEventNewMessage(ctx, message)
 	case domain.WsUpdateLastMessage:
 		return c.handleSendEventUpdateLastMessageID(ctx, message)
+	case domain.WsSeenMessage:
+		return c.handleSendEventNewMessage(ctx, message)
 	}
 	return nil
 }
 
-func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository, userRepository domain.UserRepository, obs *observability.Observability) ConversationUseCase {
+func NewConversationUseCase(conversationRepository domain.ConversationRepository, messageRepository domain.MessageRepository, messagePublisher pubsub.Publisher, userOnlineRepository domain.UserOnlineRepository, userRepository domain.UserRepository, seenMessageRepository domain.SeenMessageRepository, obs *observability.Observability) ConversationUseCase {
 	return &conversationUseCase{
 		conversationRepository: conversationRepository,
 		messageRepository:      messageRepository,
 		messagePublisher:       messagePublisher,
 		userOnlineRepository:   userOnlineRepository,
 		userRepository:         userRepository,
+		seenMessageRepository:  seenMessageRepository,
 		obs:                    obs,
 	}
 }
@@ -288,7 +364,16 @@ func (c *conversationUseCase) GetListConversationByUserID(ctx context.Context, u
 					UserType: conversation.LastMessage.User.Type,
 				},
 			}
-
+		}
+		if len(conversation.Members) > 0 {
+			for _, member := range conversation.Members {
+				conversationResponse.Members = append(conversationResponse.Members, &presenter.ConversationMemberResponse{
+					UserID:   member.ID,
+					FullName: member.FullName,
+					Avatar:   member.Avatar,
+					UserType: member.Type,
+				})
+			}
 		}
 		conversationResponses = append(conversationResponses, conversationResponse)
 	}

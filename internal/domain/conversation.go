@@ -8,15 +8,16 @@ const (
 )
 
 type Conversation struct {
-	ID            string     `json:"id,omitempty"`
-	CreatedAt     *time.Time `json:"created_at,omitempty"`
-	Type          string     `json:"type,omitempty"`
-	Title         string     `json:"title,omitempty"`
-	Avatar        string     `json:"avatar,omitempty"`
-	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
-	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
-	LastMessageID string     `json:"last_message_id,omitempty"`
-	LastMessage   *Message   `json:"-"`
+	ID            string      `json:"id,omitempty"`
+	CreatedAt     *time.Time  `json:"created_at,omitempty"`
+	Type          string      `json:"type,omitempty"`
+	Title         string      `json:"title,omitempty"`
+	Avatar        string      `json:"avatar,omitempty"`
+	UpdatedAt     *time.Time  `json:"updated_at,omitempty"`
+	DeletedAt     *time.Time  `json:"deleted_at,omitempty"`
+	LastMessageID string      `json:"last_message_id,omitempty"`
+	LastMessage   *Message    `json:"-"`
+	Members       []*UserInfo `json:"members,omitempty"`
 }
 
 func (c *Conversation) TableName() string {
