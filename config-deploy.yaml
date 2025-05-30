@@ -31,3 +31,9 @@ observability:
   jaeger_endpoint: jeager:4318
   jaeger_service: "chat-socio"
 
+minio:
+  endpoint: "minio:9000"
+  access_key: "ROOTNAME"
+  secret_key: "CHANGEME123"
+  use_ssl: false
+  token: ""
