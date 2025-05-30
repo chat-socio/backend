@@ -34,15 +34,15 @@ type Handler struct {
 }
 
 func CreateStream(js natsjs.JetStreamContext) error {
-	err := js.DeleteStream(domain.STREAM_NAME_CONVERSATION)
-	if err != nil {
-		return err
-	}
-	err = js.DeleteStream(domain.STREAM_NAME_WS_MESSAGE)
-	if err != nil {
-		return err
-	}
-	_, err = js.AddStream(&natsjs.StreamConfig{
+	// err := js.DeleteStream(domain.STREAM_NAME_CONVERSATION)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = js.DeleteStream(domain.STREAM_NAME_WS_MESSAGE)
+	// if err != nil {
+	// 	return err
+	// }
+	_, err := js.AddStream(&natsjs.StreamConfig{
 		Name:     domain.STREAM_NAME_CONVERSATION,
 		Subjects: []string{domain.SUBJECT_WILDCARD_CONVERSATION},
 	})

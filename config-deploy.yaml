@@ -37,3 +37,4 @@ minio:
   secret_key: "CHANGEME123"
   use_ssl: false
   token: ""
+  public_endpoint: "http://localhost:9000"

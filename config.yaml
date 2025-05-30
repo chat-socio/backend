@@ -36,7 +36,7 @@ minio:
   access_key: "ROOTNAME"
   secret_key: "CHANGEME123"
   use_ssl: false
-
+  public_endpoint: "http://localhost:9000"
 # logging:
 #   level: "info"
 #   format: "json"

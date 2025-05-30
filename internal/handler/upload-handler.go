@@ -59,7 +59,7 @@ func (h *UploadHandler) UploadFile(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	url := fmt.Sprintf("%s%s", configuration.ConfigInstance.Minio.Endpoint, uri)
+	url := fmt.Sprintf("%s%s", configuration.ConfigInstance.Minio.PublicEndpoint, uri)
 
 	c.JSON(http.StatusOK, presenter.BaseResponse[*presenter.UploadResponse]{
 		Data:    &presenter.UploadResponse{URL: url},

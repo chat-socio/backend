@@ -60,11 +60,12 @@ type ObservabilityConfig struct {
 }
 
 type MinioConfig struct {
-	Endpoint  string `yaml:"endpoint,omitempty"`
-	AccessKey string `yaml:"access_key,omitempty"`
-	SecretKey string `yaml:"secret_key,omitempty"`
-	Token     string `yaml:"token,omitempty"`
-	UseSSL    bool   `yaml:"use_ssl,omitempty"`
+	Endpoint       string `yaml:"endpoint,omitempty"`
+	AccessKey      string `yaml:"access_key,omitempty"`
+	SecretKey      string `yaml:"secret_key,omitempty"`
+	Token          string `yaml:"token,omitempty"`
+	UseSSL         bool   `yaml:"use_ssl,omitempty"`
+	PublicEndpoint string `yaml:"public_endpoint,omitempty"`
 }
 
 var ConfigInstance *Config
