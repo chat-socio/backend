@@ -30,6 +30,11 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=chat_socio
       - POSTGRES_USER=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:  
     image: redis:latest
@@ -98,6 +103,9 @@ services:
     volumes:
       - ~/minio/data:/data
     command: server /data --console-address ":9001"
+  minio-mc:
+    image: minio/mc:latest
+    command: 
 volumes:
   nats-data:
   postgres-data:
