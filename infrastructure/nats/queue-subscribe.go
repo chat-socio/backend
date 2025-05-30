@@ -3,7 +3,6 @@ package nats
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/nats-io/nats.go"
 )
@@ -18,7 +17,7 @@ type QueueSubscriber struct {
 func (qs *QueueSubscriber) Subscribe(ctx context.Context, subject string, handler func(ctx context.Context, data interface{}) error) error {
 	var err error
 	qs.subs, err = qs.js.QueueSubscribe(subject, qs.queueName, func(msg *nats.Msg) {
-		fmt.Println("msg", string(msg.Data))
+		// fmt.Println("msg", string(msg.Data))
 		var data interface{}
 		err := json.Unmarshal(msg.Data, &data)
 		if err != nil {

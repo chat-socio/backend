@@ -96,8 +96,8 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 	}
 
 	mapIgnoreUserOnlines := make(map[string]bool)
-	for _, userOnline := range userOnlines {
-		mapIgnoreUserOnlines[userOnline.UserID] = true
+	for _, uo := range message.IgnoreUserOnlines {
+		mapIgnoreUserOnlines[uo] = true
 	}
 
 	// send message to websocket
@@ -131,8 +131,8 @@ func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Con
 	}
 
 	mapIgnoreUserOnlines := make(map[string]bool)
-	for _, userOnline := range userOnlines {
-		mapIgnoreUserOnlines[userOnline.UserID] = true
+	for _, uo := range message.IgnoreUserOnlines {
+		mapIgnoreUserOnlines[uo] = true
 	}
 	// send message to websocket
 	for _, userOnline := range userOnlines {
