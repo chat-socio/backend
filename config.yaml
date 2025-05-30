@@ -31,6 +31,12 @@ observability:
   jaeger_endpoint: localhost:4318
   jaeger_service: "chat-socio"
 
+minio:
+  endpoint: "localhost:9000"
+  access_key: "ROOTNAME"
+  secret_key: "CHANGEME123"
+  use_ssl: false
+
 # logging:
 #   level: "info"
 #   format: "json"
