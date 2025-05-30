@@ -103,7 +103,7 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 	// send message to websocket
 	for _, userOnline := range userOnlines {
 		// exclude user who send message
-		if _, ok := mapIgnoreUserOnlines[userOnline.UserID]; ok {
+		if _, ok := mapIgnoreUserOnlines[userOnline.ID]; ok {
 			continue
 		}
 		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
@@ -116,7 +116,11 @@ func (c *conversationUseCase) handleSendEventNewMessage(ctx context.Context, mes
 			logger.Error("failed to marshal message to json", err, message)
 			continue
 		}
-		wsConn.SendMessage(b)
+		err = wsConn.SendMessage(b)
+		if err != nil {
+			logger.Error("failed to send message to websocket", err, message)
+			continue
+		}
 	}
 	return nil
 }
@@ -137,7 +141,7 @@ func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Con
 	// send message to websocket
 	for _, userOnline := range userOnlines {
 		// exclude user who send message
-		if _, ok := mapIgnoreUserOnlines[userOnline.UserID]; ok {
+		if _, ok := mapIgnoreUserOnlines[userOnline.ID]; ok {
 			continue
 		}
 		wsConn, ok := domain.WebSocket.GetConnection(userOnline.ConnectionID)
@@ -149,7 +153,11 @@ func (c *conversationUseCase) handleSendEventUpdateLastMessageID(ctx context.Con
 			logger.Error("failed to marshal message to json", err, message)
 			continue
 		}
-		wsConn.SendMessage(b)
+		err = wsConn.SendMessage(b)
+		if err != nil {
+			logger.Error("failed to send message to websocket", err, message)
+			continue
+		}
 	}
 	return nil
 }
