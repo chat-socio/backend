@@ -14,6 +14,7 @@ type Config struct {
 	JWT           *JWTConfig           `yaml:"jwt,omitempty"`
 	Nats          *NatsConfig          `yaml:"nats,omitempty"`
 	Observability *ObservabilityConfig `yaml:"observability,omitempty"`
+	Minio         *MinioConfig         `yaml:"minio,omitempty"`
 }
 
 type ServerConfig struct {
@@ -56,6 +57,14 @@ type ObservabilityConfig struct {
 	TracingEnabled bool   `yaml:"tracing_enabled,omitempty"`
 	JaegerEndpoint string `yaml:"jaeger_endpoint,omitempty"`
 	JaegerService  string `yaml:"jaeger_service,omitempty"`
+}
+
+type MinioConfig struct {
+	Endpoint  string `yaml:"endpoint,omitempty"`
+	AccessKey string `yaml:"access_key,omitempty"`
+	SecretKey string `yaml:"secret_key,omitempty"`
+	Token     string `yaml:"token,omitempty"`
+	UseSSL    bool   `yaml:"use_ssl,omitempty"`
 }
 
 var ConfigInstance *Config

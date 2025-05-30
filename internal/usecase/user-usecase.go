@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/chat-socio/backend/pkg/jwt"
 	"github.com/chat-socio/backend/pkg/pointer"
 	"github.com/chat-socio/backend/pkg/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/chat-socio/backend/internal/domain"
@@ -127,11 +127,11 @@ func (u *userUseCase) GetMyInfo(ctx context.Context) (*presenter.GetUserInfoResp
 
 	accountID := ctx.Value(utils.AccountIDKey).(string)
 	user, err := u.userRepository.GetUserByAccountID(ctx, accountID)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
 	}
 
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, ErrNotFoundAccount
 	}
 
@@ -178,11 +178,11 @@ func (u *userUseCase) Login(ctx context.Context, loginRequest *presenter.LoginRe
 	ipAddress := ctx.Value(utils.IpAddressKey).(string)
 
 	account, err := u.accountRepository.GetAccountByUsername(ctx, loginRequest.Email)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && err.Error() != pgx.ErrNoRows.Error() {
 		return nil, err
 	}
 
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, ErrNotFoundAccount
 	}
 

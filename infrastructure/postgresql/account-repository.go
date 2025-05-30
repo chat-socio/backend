@@ -2,7 +2,6 @@ package postgresql
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -59,7 +58,7 @@ func (a *accountRepository) GetAccountByID(ctx context.Context, id string) (*dom
 	row := a.db.QueryRow(ctx, query, id)
 	err := row.Scan(values...)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, err
 		}
 		return nil, err
@@ -75,7 +74,7 @@ func (a *accountRepository) GetAccountByUsername(ctx context.Context, username s
 	row := a.db.QueryRow(ctx, query, username)
 	err := row.Scan(values...)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, err
 		}
 		return nil, err

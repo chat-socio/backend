@@ -2,10 +2,10 @@ package postgresql
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -76,7 +76,7 @@ func (s *sessionRepository) GetSessionByToken(ctx context.Context, token string)
 	var session domain.Session
 	err := row.Scan(&session.SessionToken, &session.AccountID, &session.CreatedAt, &session.UpdatedAt, &session.ExpiredAt, &session.IsActive, &session.UserAgent, &session.IPAddress)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return nil, err
 		}
 		return nil, err

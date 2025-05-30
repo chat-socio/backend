@@ -9,6 +9,7 @@ import (
 
 	"github.com/chat-socio/backend/configuration"
 	"github.com/chat-socio/backend/infrastructure/http"
+	"github.com/chat-socio/backend/infrastructure/minio"
 	"github.com/chat-socio/backend/infrastructure/nats"
 	"github.com/chat-socio/backend/infrastructure/postgresql"
 	"github.com/chat-socio/backend/infrastructure/redis"
@@ -29,6 +30,7 @@ type Handler struct {
 	ConversationHandler *handler.ConversationHandler
 	Middleware          *middleware.Middleware
 	WebSocketHandler    *handler.WebSocketHandler
+	UploadHandler       *handler.UploadHandler
 }
 
 func CreateStream(js natsjs.JetStreamContext) error {
@@ -85,6 +87,11 @@ func RunApp() {
 	if err != nil {
 		panic(err)
 	}
+	// Initialize storage
+	storage, err := minio.NewMinioClient(configuration.ConfigInstance.Minio, observability)
+	if err != nil {
+		panic(err)
+	}
 
 	// Initialize repositories
 	accountRepository := postgresql.NewAccountRepository(db)
@@ -121,6 +128,10 @@ func RunApp() {
 			ConversationUseCase: conversationUseCase,
 			UserUseCase:         userUseCase,
 			Obs:                 observability,
+		},
+		UploadHandler: &handler.UploadHandler{
+			Storage: storage,
+			Obs:     observability,
 		},
 	}
 
@@ -184,6 +195,9 @@ func SetUpRoutes(s *server.Hertz, handler *Handler) {
 	// Message
 	authGroup.POST("/message", handler.ConversationHandler.SendMessage)
 	authGroup.GET("/message", handler.ConversationHandler.GetListMessage)
+
+	// Upload
+	authGroup.POST("/upload", handler.UploadHandler.UploadFile)
 
 	s.GET("/ws", handler.WebSocketHandler.HandleWebsocket)
 }
