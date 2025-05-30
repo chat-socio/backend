@@ -123,6 +123,22 @@ func (ch *ConversationHandler) GetListConversation(ctx context.Context, c *app.R
 		return
 	}
 
+	conversationID := c.Query("conversation_id")
+	if conversationID != "" {
+		conversation, err := ch.ConversationUseCase.GetConversationByID(ctx, conversationID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, presenter.BaseResponse[[]*presenter.GetListConversationResponse]{
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, presenter.BaseResponse[*presenter.ConversationResponse]{
+			Data:    conversation,
+			Message: "Conversation fetched successfully",
+		})
+		return
+	}
+
 	lastMessageID := c.Query("last_message_id")
 	limit, err := strconv.Atoi(c.Query("limit"))
 	if err != nil {

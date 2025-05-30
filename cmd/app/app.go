@@ -190,7 +190,7 @@ func SetUpRoutes(s *server.Hertz, handler *Handler) {
 	// Conversation
 	authGroup.GET("/conversation", handler.ConversationHandler.GetListConversation)
 	authGroup.POST("/conversation", handler.ConversationHandler.CreateConversation)
-	authGroup.GET("/conversation/:conversation_id", handler.ConversationHandler.GetConversationByID)
+	// authGroup.GET("/conversation/:conversation_id", handler.ConversationHandler.GetConversationByID)
 
 	// Message
 	authGroup.POST("/message", handler.ConversationHandler.SendMessage)
