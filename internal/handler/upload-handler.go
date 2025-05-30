@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
+	"github.com/chat-socio/backend/configuration"
 	"github.com/chat-socio/backend/internal/presenter"
 	"github.com/chat-socio/backend/pkg/observability"
 	"github.com/chat-socio/backend/pkg/storage"
@@ -49,13 +51,15 @@ func (h *UploadHandler) UploadFile(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	url, err := h.Storage.GetObjectURI(ctx, string(bucketName), string(objectName))
+	uri, err := h.Storage.GetObjectURI(ctx, string(bucketName), string(objectName))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[*presenter.UploadResponse]{
 			Message: err.Error(),
 		})
 		return
 	}
+
+	url := fmt.Sprintf("%s%s", configuration.ConfigInstance.Minio.Endpoint, uri)
 
 	c.JSON(http.StatusOK, presenter.BaseResponse[*presenter.UploadResponse]{
 		Data:    &presenter.UploadResponse{URL: url},

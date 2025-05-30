@@ -45,7 +45,7 @@ services:
     command: ["./chat_socio", "-s", "migrate", "-c", "config.yaml"]
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./config-deploy.yaml:/app/config.yaml
 
@@ -66,6 +66,8 @@ services:
         condition: service_started
       nats:
         condition: service_started
+      minio:
+        condition: service_healthy
     volumes:
       - ./config-deploy.yaml:/app/config.yaml
 
