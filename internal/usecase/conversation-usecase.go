@@ -58,7 +58,7 @@ func (c *conversationUseCase) HandleSeenMessage(ctx context.Context, message *do
 			"user_id":         message.UserID,
 		},
 	}
-	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_SEEN_MESSAGE, wsMessage)
+	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_NEW_MESSAGE, wsMessage)
 	if err != nil {
 		logger.Error("failed to publish seen message", err, message)
 		return err

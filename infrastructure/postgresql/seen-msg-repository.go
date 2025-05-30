@@ -26,7 +26,7 @@ func (r *seenMessageRepository) CreateSeenMessage(ctx context.Context, seenMessa
 	query := `
 		INSERT INTO seen_message (id, message_id, user_id, conversation_id)
 		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (user_id, conversation_id) DO UPDATE SET message_id = $2, updated_at = current_timestamp
+		ON CONFLICT (user_id, conversation_id) DO UPDATE SET message_id = EXCLUDED.message_id, updated_at = current_timestamp
 	`
 	_, err := r.db.Exec(ctx, query, seenMessage.ID, seenMessage.MessageID, seenMessage.UserID, seenMessage.ConversationID)
 	if err != nil {

@@ -254,7 +254,7 @@ func (ch *ConversationHandler) SeenMessage(ctx context.Context, c *app.RequestCo
 		return
 	}
 
-	err = ch.ConversationUseCase.SeenMessage(ctx, request.ConversationID, request.MessageID, userID)
+	err = ch.ConversationUseCase.SeenMessage(ctx, request.MessageID, userID, request.ConversationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[any]{
 			Message: err.Error(),
