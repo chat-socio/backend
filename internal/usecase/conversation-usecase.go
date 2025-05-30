@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/chat-socio/backend/internal/domain"
@@ -12,6 +11,7 @@ import (
 	"github.com/chat-socio/backend/pkg/pointer"
 	"github.com/chat-socio/backend/pkg/uuid"
 	"github.com/chat-socio/backend/pubsub"
+	"github.com/jackc/pgx/v5"
 )
 
 type ConversationUseCase interface {
@@ -386,16 +386,19 @@ func (c *conversationUseCase) GetListMessageByConversationID(ctx context.Context
 	defer span()
 	// check is member of conversation
 	isMember, err := c.conversationRepository.CheckIsMemberOfConversation(ctx, userID, conversationID)
-	if err != nil {
+	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
 	}
 	if !isMember {
-		return nil, fmt.Errorf("user is not a member of conversation")
+		return nil, domain.ErrNotFoundMemberOfConversation
 	}
 	// get list message by conversation id
 	messages, err := c.messageRepository.GetListMessageByConversationID(ctx, conversationID, lastMessageID, limit)
 	if err != nil {
 		return nil, err
+	}
+	if err == pgx.ErrNoRows {
+		return []*presenter.MessageResponse{}, nil
 	}
 	messageResponses := make([]*presenter.MessageResponse, 0)
 	for _, message := range messages {

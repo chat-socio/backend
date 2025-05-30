@@ -173,7 +173,7 @@ func (ch *ConversationHandler) GetListMessage(ctx context.Context, c *app.Reques
 
 	userID, err := ch.UserUseCase.GetUserIDByAccountID(ctx, accountID.(string))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[[]*presenter.MessageResponse]{
+		c.JSON(http.StatusNotFound, presenter.BaseResponse[[]*presenter.MessageResponse]{
 			Message: err.Error(),
 		})
 		return
@@ -194,7 +194,7 @@ func (ch *ConversationHandler) GetListMessage(ctx context.Context, c *app.Reques
 
 	listMessage, err := ch.ConversationUseCase.GetListMessageByConversationID(ctx, userID, conversationID, lastMessageID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[[]*presenter.MessageResponse]{
+		c.JSON(http.StatusNotFound, presenter.BaseResponse[[]*presenter.MessageResponse]{
 			Message: err.Error(),
 		})
 		return

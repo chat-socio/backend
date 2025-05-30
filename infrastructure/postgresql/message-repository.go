@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/chat-socio/backend/internal/domain"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -51,8 +52,11 @@ func (m *messageRepository) GetListMessageByConversationID(ctx context.Context, 
 		params = append(params, lastID)
 	}
 	rows, err := m.db.Query(ctx, query, params...)
-	if err != nil {
+	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
+	}
+	if err == pgx.ErrNoRows {
+		return []*domain.Message{}, nil
 	}
 	defer rows.Close()
 
