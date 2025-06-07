@@ -138,7 +138,6 @@ func (c *conversationUseCase) HandleSendMessageToFCM(ctx context.Context, messag
 				"body":            messageDomain.Body,
 				"created_at":      messageDomain.CreatedAt.Format(time.RFC3339),
 				"updated_at":      messageDomain.UpdatedAt.Format(time.RFC3339),
-				"deleted_at":      messageDomain.DeletedAt.Format(time.RFC3339),
 				"reply_to":        messageDomain.ReplyTo,
 			},
 		}
