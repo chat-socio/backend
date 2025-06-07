@@ -36,6 +36,10 @@ type Handler struct {
 }
 
 func CreateStream(js natsjs.JetStreamContext) error {
+	js.DeleteStream(domain.STREAM_NAME_FCM)
+	js.DeleteStream(domain.STREAM_NAME_CONVERSATION)
+	js.DeleteStream(domain.STREAM_NAME_WS_MESSAGE)
+
 	_, err := js.AddStream(&natsjs.StreamConfig{
 		Name:     domain.STREAM_NAME_FCM,
 		Subjects: []string{domain.SUBJECT_WILDCARD_FCM},

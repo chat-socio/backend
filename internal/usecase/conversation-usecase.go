@@ -123,6 +123,20 @@ func (c *conversationUseCase) HandleSendMessageToFCM(ctx context.Context, messag
 				title = conversation.Title
 			}
 		}
+		data := map[string]string{
+			"conversation_id": conversation.ID,
+			"message_id":      messageDomain.ID,
+			"user_id":         messageDomain.UserID,
+			"type":            messageDomain.Type,
+			"body":            messageDomain.Body,
+			"reply_to":        messageDomain.ReplyTo,
+		}
+		if messageDomain.CreatedAt != nil {
+			data["created_at"] = messageDomain.CreatedAt.Format(time.RFC3339)
+		}
+		if messageDomain.UpdatedAt != nil {
+			data["updated_at"] = messageDomain.UpdatedAt.Format(time.RFC3339)
+		}
 		message := &messaging.Message{
 			Token: fcmToken.Token,
 			Notification: &messaging.Notification{
@@ -130,16 +144,7 @@ func (c *conversationUseCase) HandleSendMessageToFCM(ctx context.Context, messag
 				Body:     messageDomain.Body,
 				ImageURL: conversation.Avatar,
 			},
-			Data: map[string]string{
-				"conversation_id": conversation.ID,
-				"message_id":      messageDomain.ID,
-				"user_id":         messageDomain.UserID,
-				"type":            messageDomain.Type,
-				"body":            messageDomain.Body,
-				"created_at":      messageDomain.CreatedAt.Format(time.RFC3339),
-				"updated_at":      messageDomain.UpdatedAt.Format(time.RFC3339),
-				"reply_to":        messageDomain.ReplyTo,
-			},
+			Data: data,
 		}
 		_, err = c.fcmClient.Send(ctx, message)
 		if err != nil {
