@@ -243,6 +243,7 @@ func SetUpRoutes(s *server.Hertz, handler *Handler) {
 
 	// FCM
 	authGroup.POST("/fcm/token", handler.FCMHandler.CreateFCMToken)
+	authGroup.DELETE("/fcm/token", handler.FCMHandler.DeleteFCMToken)
 
 	s.GET("/ws", handler.WebSocketHandler.HandleWebsocket)
 }

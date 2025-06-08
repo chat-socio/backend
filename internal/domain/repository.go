@@ -82,4 +82,5 @@ type FcmTokenRepository interface {
 	CreateFcmToken(ctx context.Context, fcmToken *FcmToken) error
 	GetFcmTokenByUserID(ctx context.Context, userID string) ([]*FcmToken, error)
 	DeleteFcmToken(ctx context.Context, id string) error
+	DeleteFcmTokenByUserIDAndToken(ctx context.Context, userID, token string) error
 }

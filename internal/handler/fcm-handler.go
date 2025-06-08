@@ -70,3 +70,47 @@ func (h *FCMHandler) CreateFCMToken(ctx context.Context, c *app.RequestContext) 
 		Message: "success",
 	})
 }
+
+func (h *FCMHandler) DeleteFCMToken(ctx context.Context, c *app.RequestContext) {
+	ctx, span := h.Obs.StartSpan(ctx, "FCMHandler.DeleteFCMToken")
+	defer span()
+	logger := h.Obs.Logger.WithContext(ctx)
+
+	accountID := ctx.Value(utils.AccountIDKey).(string)
+	if accountID == "" {
+		c.JSON(http.StatusUnauthorized, &presenter.BaseResponse[any]{
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := h.UserUseCase.GetUserIDByAccountID(ctx, accountID)
+	if err != nil {
+		logger.Error("failed to get user id by account id", err)
+		c.JSON(http.StatusInternalServerError, &presenter.BaseResponse[any]{
+			Message: err.Error(),
+		})
+		return
+	}
+
+	token := c.Query("fcm_token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, &presenter.BaseResponse[any]{
+			Message: "fcm_token is required",
+		})
+		return
+	}
+
+	err = h.FcmUseCase.DeleteFCMToken(ctx, userID, token)
+	if err != nil {
+		logger.Error("failed to delete fcm token", err)
+		c.JSON(http.StatusInternalServerError, &presenter.BaseResponse[any]{
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &presenter.BaseResponse[any]{
+		Message: "success",
+	})
+}

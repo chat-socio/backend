@@ -13,6 +13,23 @@ type fcmRepository struct {
 	obs *observability.Observability
 }
 
+// DeleteFcmTokenByUserIDAndToken implements domain.FcmTokenRepository.
+func (f *fcmRepository) DeleteFcmTokenByUserIDAndToken(ctx context.Context, userID string, token string) error {
+	ctx, span := f.obs.StartSpan(ctx, "FcmRepository.DeleteFcmTokenByUserIDAndToken")
+	defer span()
+	logger := f.obs.Logger.WithContext(ctx)
+	query := `
+		DELETE FROM fcm_token
+		WHERE user_id = $1 AND token = $2
+	`
+	_, err := f.db.Exec(ctx, query, userID, token)
+	if err != nil {
+		logger.Error("failed to delete fcm token by user id and token", err)
+		return err
+	}
+	return nil
+}
+
 func NewFcmRepository(db *pgxpool.Pool, obs *observability.Observability) domain.FcmTokenRepository {
 	return &fcmRepository{db: db, obs: obs}
 }

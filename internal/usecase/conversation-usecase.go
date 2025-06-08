@@ -100,6 +100,9 @@ func (c *conversationUseCase) HandleSendMessageToFCM(ctx context.Context, messag
 		fcmTokens = append(fcmTokens, fcmToken...)
 	}
 	for _, fcmToken := range fcmTokens {
+		if messageDomain.IgnoreFCMToken == fcmToken.Token {
+			continue
+		}
 		var title string
 		if conversation.Type == domain.ConversationTypeGroup {
 			if conversation.Title == "" {
@@ -539,6 +542,9 @@ func (c *conversationUseCase) SendMessage(ctx context.Context, message *presente
 		return nil, err
 	}
 	// publish message nats for fcm
+	if message.IgnoreFCMToken == "" {
+		messageDomain.IgnoreFCMToken = message.IgnoreFCMToken
+	}
 	err = c.messagePublisher.Publish(ctx, domain.SUBJECT_FCM_MESSAGE, messageDomain)
 	if err != nil {
 		logger.Error("failed to publish message to fcm", err, message)
