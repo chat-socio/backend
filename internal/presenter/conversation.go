@@ -55,7 +55,7 @@ type SendMessageRequest struct {
 	Body           string `json:"body,omitempty"`
 	ReplyTo        string `json:"reply_to,omitempty"`
 	UserOnlineID   string `json:"user_online_id,omitempty"`   // for ignore user online id
-	IgnoreFCMToken string `json:"ignore_fcm_token,omitempty"` // for ignore fcm token
+	// IgnoreFCMToken string `json:"ignore_fcm_token,omitempty"` // for ignore fcm token
 }
 
 func (s *SendMessageRequest) Validate() error {

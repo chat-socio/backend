@@ -28,7 +28,7 @@ type Message struct {
 	User           *UserInfo  `json:"-"`
 	IgnoreSend     string     `json:"-"`
 	IsRead         bool       `json:"-"` // for get list conversation by user
-	IgnoreFCMToken string     `json:"-"` // for ignore fcm token
+	// IgnoreFCMToken string     `json:"-"` // for ignore fcm token
 }
 
 func (m *Message) TableName() string {
