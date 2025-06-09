@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/chat-socio/backend/internal/domain"
 	"github.com/chat-socio/backend/internal/presenter"
 	"github.com/chat-socio/backend/internal/usecase"
 	"github.com/chat-socio/backend/internal/utils"
@@ -90,9 +91,16 @@ func (ch *ConversationHandler) CreateConversation(ctx context.Context, c *app.Re
 	}
 
 	createConversationResponse, err := ch.ConversationUseCase.CreateConversation(ctx, &request)
-	if err != nil {
+	if err != nil && err != domain.ErrConversationAlreadyExist {
 		c.JSON(http.StatusInternalServerError, presenter.BaseResponse[*presenter.ConversationResponse]{
 			Message: err.Error(),
+		})
+		return
+	}
+
+	if err == domain.ErrConversationAlreadyExist {
+		c.JSON(http.StatusConflict, presenter.BaseResponse[*presenter.ConversationResponse]{
+			Message: "Conversation already exist",
 		})
 		return
 	}
