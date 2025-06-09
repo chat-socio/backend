@@ -98,13 +98,6 @@ func (ch *ConversationHandler) CreateConversation(ctx context.Context, c *app.Re
 		return
 	}
 
-	if err == domain.ErrConversationAlreadyExist {
-		c.JSON(http.StatusConflict, presenter.BaseResponse[*presenter.ConversationResponse]{
-			Message: "Conversation already exist",
-		})
-		return
-	}
-
 	c.JSON(http.StatusOK, presenter.BaseResponse[*presenter.ConversationResponse]{
 		Data:    createConversationResponse,
 		Message: "Conversation created successfully",
